@@ -1,0 +1,11 @@
+flask
+flask-cors
+google-generativeai
+pandas
+numpy
+matplotlib
+pdfplumber
+pytesseract
+reportlab
+python-dotenv
+werkzeug
