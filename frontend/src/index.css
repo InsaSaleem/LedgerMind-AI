@@ -705,3 +705,208 @@
   .stat-grid-3 { grid-template-columns: 1fr 1fr !important; }
 }
 
+/* ══════════════════════════════════════
+   TASKS PANEL
+══════════════════════════════════════ */
+.tasks-panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.tasks-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tasks-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tasks-header-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.tasks-counter {
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border-radius: 10px;
+  padding: 2px 8px;
+  font-weight: 500;
+}
+
+.tasks-generate-btn {
+  font-size: 12px !important;
+  padding: 6px 12px !important;
+}
+
+/* Progress bar */
+.tasks-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tasks-progress-track {
+  flex: 1;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.tasks-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+.tasks-progress-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Error */
+.tasks-error {
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: 12px;
+  padding: 8px 18px;
+  border-bottom: 1px solid rgba(255, 68, 68, 0.15);
+}
+
+/* Task list */
+.tasks-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 350px;
+  overflow-y: auto;
+}
+
+/* Empty state */
+.tasks-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 20px;
+  text-align: center;
+}
+
+.tasks-empty-icon {
+  font-size: 28px;
+  opacity: 0.6;
+}
+
+.tasks-empty-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  max-width: 260px;
+}
+
+/* Individual task */
+.task-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.task-item:hover {
+  background: var(--accent-bg);
+}
+
+.task-item:last-child {
+  border-bottom: none;
+}
+
+.task-completed {
+  opacity: 0.55;
+}
+
+/* Checkbox */
+.task-checkbox {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  border: 2px solid var(--border-strong);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+  transition: all 0.2s;
+}
+
+.task-checkbox.checked {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0A0A0A;
+}
+
+/* Content */
+.task-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.task-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.task-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.task-title.line-through {
+  text-decoration: line-through;
+  color: var(--text-secondary);
+}
+
+.task-description {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-top: 3px;
+}
+
+/* Priority badge */
+.task-priority-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}

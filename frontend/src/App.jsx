@@ -3,6 +3,7 @@ import './index.css';
 import Uploader from './components/Uploader';
 import Chat from './components/Chat';
 import Dashboard from './components/Dashboard';
+import Tasks from './components/Tasks';
 
 function App() {
   const [theme, setTheme] = useState(
@@ -96,6 +97,7 @@ function App() {
           <div className="panel-columns">
             <div className="left-panel">
               <Dashboard stats={appState.stats} anomalies={appState.anomalies} />
+              <Tasks theme={theme} />
             </div>
             <div className="right-panel">
               <Chat theme={theme} />

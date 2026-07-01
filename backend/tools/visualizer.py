@@ -1,6 +1,7 @@
 import matplotlib
 matplotlib.use('Agg') # Headless backend
 import matplotlib.pyplot as plt
+import pandas as pd
 import io
 import base64
 

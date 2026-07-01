@@ -1,9 +1,20 @@
 import pandas as pd
 import pdfplumber
-import pytesseract
-from pdf2image import convert_from_path
 import re
 import datetime
+
+# ── Optional OCR dependencies (need Tesseract / Poppler system binaries) ──
+try:
+    import pytesseract
+    TESSERACT_AVAILABLE = True
+except Exception:
+    TESSERACT_AVAILABLE = False
+
+try:
+    from pdf2image import convert_from_path
+    PDF2IMAGE_AVAILABLE = True
+except Exception:
+    PDF2IMAGE_AVAILABLE = False
 
 def parse_pdf_statement(filepath):
     """
@@ -35,6 +46,12 @@ def parse_pdf_statement(filepath):
     # Fallback to OCR if no meaningful text was extracted (scanned PDF)
     if not text_extracted:
         print("No text found. Falling back to OCR...")
+        if not PDF2IMAGE_AVAILABLE or not TESSERACT_AVAILABLE:
+            raise RuntimeError(
+                "PDF parsing failed: no text could be extracted natively, and OCR dependencies "
+                "(Tesseract / pdf2image / Poppler) are not installed. "
+                "Please convert the PDF to CSV or install the required system tools."
+            )
         try:
             images = convert_from_path(filepath)
             for image in images:

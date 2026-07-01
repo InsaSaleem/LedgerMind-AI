@@ -23,14 +23,29 @@ global_app_state = {
 
 from agent.orchestrator import LedgerMindAgent
 
-# Initialize the Gemini Agent with both keys
+# Initialize the Gemini Agent with all three keys
 gemini_api_key    = os.environ.get('GEMINI_API_KEY')
 gemini_vision_key = os.environ.get('GEMINI_VISION_KEY', gemini_api_key)
-agent = LedgerMindAgent(gemini_api_key, vision_api_key=gemini_vision_key)
+gemini_tasks_key  = os.environ.get('GEMINI_TASKS_KEY', gemini_api_key)
+agent = LedgerMindAgent(
+    gemini_api_key,
+    vision_api_key=gemini_vision_key,
+    tasks_api_key=gemini_tasks_key,
+)
 
 
 def _is_rate_limit(err_str):
     return '429' in err_str or 'quota' in err_str.lower() or 'rate limit' in err_str.lower()
+
+
+def _safe_total_spend(df):
+    """Safely compute total spend, returning 0 if the Amount column is missing."""
+    if df is not None and not df.empty and 'Amount' in df.columns:
+        try:
+            return float(df['Amount'].sum())
+        except Exception:
+            return 0.0
+    return 0.0
 
 
 @app.route('/api/upload', methods=['POST'])
@@ -65,9 +80,7 @@ def upload_file():
                     }), 429
                 return jsonify({'error': err, 'agent_narration': response.get('narration', [])}), 400
 
-            total_spend = 0
-            if global_app_state['dataframe'] is not None and not global_app_state['dataframe'].empty:
-                total_spend = float(global_app_state['dataframe']['Amount'].sum())
+            total_spend = _safe_total_spend(global_app_state['dataframe'])
 
             return jsonify({
                 'message': 'File uploaded and processed successfully',
@@ -132,7 +145,7 @@ def get_dashboard():
     if df is None:
         return jsonify({'stats': None})
 
-    total_spend = float(df['Amount'].sum())
+    total_spend = _safe_total_spend(df)
 
     if 'Category' in df.columns:
         cat_summary = df.groupby('Category')['Amount'].sum().sort_values(ascending=False)
@@ -154,6 +167,28 @@ def get_dashboard():
         },
         'anomalies': global_app_state['anomalies']
     }), 200
+
+
+@app.route('/api/tasks', methods=['GET'])
+def get_tasks():
+    """Generate AI-powered financial tasks using the dedicated tasks API key."""
+    try:
+        state_for_agent = {
+            'dataframe': global_app_state['dataframe'],
+            'anomalies': global_app_state['anomalies'],
+        }
+        result = agent.generate_tasks(state_for_agent)
+        return jsonify({
+            'tasks': result.get('tasks', []),
+            'error': result.get('error'),
+        }), 200
+    except Exception as e:
+        err_str = str(e)
+        print(f"Tasks endpoint error: {err_str}")
+        return jsonify({
+            'tasks': [],
+            'error': err_str,
+        }), 500
 
 
 @app.route('/api/export', methods=['POST'])

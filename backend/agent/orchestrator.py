@@ -7,6 +7,7 @@ from tools.data_parser import parse_statement
 from tools.image_parser import parse_image_statement
 from tools.analyzer import detect_anomalies
 from tools.visualizer import generate_chart
+from tools.task_generator import generate_financial_tasks
 
 
 def call_gemini_with_retry(model, prompt, max_retries=3):
@@ -32,10 +33,12 @@ def call_gemini_with_retry(model, prompt, max_retries=3):
 
 
 class LedgerMindAgent:
-    def __init__(self, api_key, vision_api_key=None):
+    def __init__(self, api_key, vision_api_key=None, tasks_api_key=None):
         self.api_key = api_key
         # vision_api_key is for image parsing; falls back to main key if not set
         self.vision_api_key = vision_api_key or api_key
+        # tasks_api_key is for AI task generation; falls back to main key if not set
+        self.tasks_api_key = tasks_api_key or api_key
         if api_key:
             genai.configure(api_key=api_key)
         # Using a model that supports function calling
@@ -61,7 +64,11 @@ class LedgerMindAgent:
                 df = parse_statement(filepath)
             elif file_type == 'image':
                 narrations.append("> parse_image_statement() — using Gemini Vision AI...")
-                result = parse_image_statement(filepath, self.vision_api_key)
+                result = parse_image_statement(
+                    filepath,
+                    self.vision_api_key,
+                    restore_key=self.api_key
+                )
                 # image_parser returns (df, method) tuple
                 if isinstance(result, tuple):
                     df, parsing_method = result
@@ -74,6 +81,16 @@ class LedgerMindAgent:
             print(f"Agent Orchestrator Error during parsing: {e}")
             narrations.append(f"> Error parsing file: {e}")
             return {'error': str(e), 'narration': narrations, 'dataframe': None, 'anomalies': []}
+
+        # Guard against None DataFrame (parsing returned nothing without raising)
+        if df is None or df.empty:
+            narrations.append("> Warning: No transaction data could be extracted.")
+            return {
+                'error': 'No transaction data could be extracted from the file.',
+                'narration': narrations,
+                'dataframe': None,
+                'anomalies': [],
+            }
 
         narrations.append(f"> Successfully parsed {len(df)} transactions.")
         narrations.append("> detect_anomalies() — running Z-score analysis...")
@@ -119,6 +136,11 @@ class LedgerMindAgent:
 
         try:
             narrations.append("> Querying financial data...")
+
+            # Re-configure with main key in case vision call changed it
+            if self.api_key:
+                genai.configure(api_key=self.api_key)
+
             response = call_gemini_with_retry(self.model, prompt)
 
             # Clean response
@@ -156,4 +178,44 @@ class LedgerMindAgent:
             return {
                 'text_reply': f"Agent error: {err_str}",
                 'narrations': ["> Failed to process query due to an error."]
+            }
+
+    def generate_tasks(self, state):
+        """
+        Generates AI-powered financial tasks using the dedicated tasks API key.
+        """
+        df = state.get('dataframe')
+        anomalies = state.get('anomalies', [])
+
+        if df is None:
+            return {
+                'tasks': [{
+                    'title': 'Upload a financial statement',
+                    'description': 'Upload a bank statement to get AI-powered financial tasks.',
+                    'priority': 'low',
+                    'category': 'plan',
+                    'completed': False,
+                }],
+                'error': None,
+            }
+
+        try:
+            tasks = generate_financial_tasks(df, anomalies, self.tasks_api_key)
+
+            # Restore main key after tasks call
+            if self.api_key:
+                genai.configure(api_key=self.api_key)
+
+            return {'tasks': tasks, 'error': None}
+        except Exception as e:
+            err_str = str(e)
+            print(f"[Agent.generate_tasks] Exception: {err_str}")
+
+            # Restore main key even on error
+            if self.api_key:
+                genai.configure(api_key=self.api_key)
+
+            return {
+                'tasks': generate_financial_tasks(df, anomalies, None),  # fallback
+                'error': err_str,
             }

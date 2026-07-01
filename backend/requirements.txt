@@ -10,3 +10,5 @@ Pillow>=10.0.0
 reportlab
 python-dotenv
 werkzeug
+openpyxl
+pdf2image

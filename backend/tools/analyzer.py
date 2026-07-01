@@ -18,11 +18,13 @@ def detect_anomalies(df):
     
     if pd.isna(std_val) or std_val == 0:
         return anomalies # Can't calculate z-score
-        
-    df['Z-Score'] = (amounts - mean_val) / std_val
+
+    # Work on a copy to avoid mutating the caller's DataFrame
+    work_df = df.copy()
+    work_df['Z-Score'] = (amounts - mean_val) / std_val
     
     # Flag anything with an absolute z-score > 2 as anomalous
-    flagged = df[df['Z-Score'].abs() > 2]
+    flagged = work_df[work_df['Z-Score'].abs() > 2]
     
     for index, row in flagged.iterrows():
         anomalies.append({

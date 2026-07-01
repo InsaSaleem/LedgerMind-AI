@@ -67,37 +67,48 @@ def parse_image_with_ocr(filepath):
     return pd.DataFrame(transactions)
 
 
-def parse_image_statement(filepath, api_key=None):
+def _create_vision_model(api_key):
+    """
+    Create a dedicated Gemini model instance for vision tasks.
+    Uses a separate configure call scoped to this function to avoid
+    polluting the global genai configuration used by the orchestrator.
+    """
+    # Configure genai with the vision-specific key
+    genai.configure(api_key=api_key)
+
+    # Try model names in priority order (free-tier compatible)
+    _model_names = [
+        'gemini-2.0-flash',
+        'gemini-1.5-flash-latest',
+        'gemini-1.5-flash',
+    ]
+    for _name in _model_names:
+        try:
+            model = genai.GenerativeModel(_name)
+            return model
+        except Exception:
+            continue
+
+    raise RuntimeError("No supported Gemini vision model found.")
+
+
+def parse_image_statement(filepath, api_key=None, restore_key=None):
     """
     Uses Gemini Vision to parse an image of a receipt or bank statement.
     Falls back to pytesseract OCR if quota is exceeded.
 
     Args:
-        filepath: path to the image file
-        api_key:  the GEMINI_VISION_KEY (dedicated image key, or falls back to main key)
+        filepath:    path to the image file
+        api_key:     the GEMINI_VISION_KEY (dedicated image key, or falls back to main key)
+        restore_key: the main GEMINI_API_KEY to restore after vision call
 
     Returns: (pd.DataFrame, parsing_method_str)
     """
     try:
-        if api_key:
-            genai.configure(api_key=api_key)
+        if not api_key:
+            raise RuntimeError("No API key provided for image parsing.")
 
-        # Try model names in priority order (free-tier compatible)
-        _model_names = [
-            'gemini-2.0-flash',
-            'gemini-1.5-flash-latest',
-            'gemini-1.5-flash',
-        ]
-        model = None
-        for _name in _model_names:
-            try:
-                model = genai.GenerativeModel(_name)
-                break
-            except Exception:
-                continue
-
-        if model is None:
-            raise RuntimeError("No supported Gemini vision model found.")
+        model = _create_vision_model(api_key)
 
         with open(filepath, 'rb') as f:
             image_data = f.read()
@@ -140,3 +151,8 @@ Return ONLY valid JSON, no other text."""
             print("[image_parser] Quota exceeded — falling back to OCR...")
             return parse_image_with_ocr(filepath), 'ocr_fallback'
         raise RuntimeError(f"Image parsing failed: {err_str}")
+
+    finally:
+        # Restore the main API key so subsequent orchestrator calls work correctly
+        if restore_key:
+            genai.configure(api_key=restore_key)
