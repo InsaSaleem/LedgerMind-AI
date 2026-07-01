@@ -1,64 +1,127 @@
 import google.generativeai as genai
 import pandas as pd
 import json
+import re
 import os
 from PIL import Image
 
-def parse_image_statement(filepath):
+
+def parse_image_with_ocr(filepath):
     """
-    Uses Gemini Vision to parse an image of a receipt or bank statement
-    and extract transaction data into a standard Pandas DataFrame.
-    Returns: pd.DataFrame with columns ['Date', 'Description', 'Amount', 'Category']
+    OCR fallback using pytesseract when Gemini quota is exceeded.
     """
     try:
-        # We assume genai is already configured in orchestrator.py
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        
-        img = Image.open(filepath)
-        
-        prompt = """
-        You are a highly accurate financial data extraction assistant.
-        Analyze this image (which is a receipt or bank statement) and extract all line-item transactions.
-        For each transaction, extract the Date, Description (payee or item name), and Amount.
-        Return the result strictly as a JSON array of objects. Do not include markdown formatting like ```json.
-        Example output format:
-        [
-            {"Date": "2023-10-15", "Description": "Coffee Shop", "Amount": 4.50},
-            {"Date": "2023-10-16", "Description": "Office Supplies", "Amount": 12.99}
+        import pytesseract
+    except ImportError:
+        raise RuntimeError("pytesseract not installed. Run: pip install pytesseract")
+
+    img = Image.open(filepath)
+    text = pytesseract.image_to_string(img)
+    transactions = []
+    lines = text.split('\n')
+    amount_pat = re.compile(r'\$?([\d,]+\.?\d{0,2})')
+    date_pat = re.compile(
+        r'\d{1,2}[\s/-]\w+[\s/-]\d{2,4}|'
+        r'\d{4}-\d{2}-\d{2}|\d{2}/\d{2}/\d{4}'
+    )
+
+    for line in lines:
+        line = line.strip()
+        if not line or len(line) < 10:
+            continue
+        amounts = amount_pat.findall(line)
+        dates = date_pat.findall(line)
+        if amounts and len(line) > 15:
+            try:
+                amount = float(amounts[-1].replace(',', ''))
+                if amount > 0:
+                    date = dates[0] if dates else 'Unknown'
+                    desc = line
+                    for d in dates:
+                        desc = desc.replace(d, '')
+                    for a in amounts:
+                        desc = desc.replace(f'${a}', '').replace(a, '')
+                    desc = re.sub(r'\s+', ' ', desc).strip()
+                    if desc and len(desc) > 3:
+                        transactions.append({
+                            'Date': date,
+                            'Description': desc[:50],
+                            'Category': 'Uncategorized',
+                            'Amount': amount
+                        })
+            except ValueError:
+                continue
+
+    if not transactions:
+        return pd.DataFrame(columns=['Date', 'Description', 'Category', 'Amount'])
+    return pd.DataFrame(transactions)
+
+
+def parse_image_statement(filepath, api_key=None):
+    """
+    Uses Gemini Vision to parse an image of a receipt or bank statement.
+    Falls back to pytesseract OCR if quota is exceeded.
+    Returns: (pd.DataFrame, parsing_method_str)
+    """
+    try:
+        if api_key:
+            genai.configure(api_key=api_key)
+
+        # Try model names in priority order (free-tier compatible)
+        _model_names = [
+            'gemini-2.0-flash',
+            'gemini-1.5-flash-latest',
+            'gemini-1.5-flash',
         ]
-        If a date is missing for a specific line but present at the top of a receipt, apply that date to all lines.
-        Make sure Amount is a float (no currency symbols).
-        """
-        
-        response = model.generate_content([prompt, img])
-        
-        # Clean response string
+        model = None
+        for _name in _model_names:
+            try:
+                model = genai.GenerativeModel(_name)
+                break
+            except Exception:
+                continue
+
+        if model is None:
+            raise RuntimeError("No supported Gemini vision model found.")
+
+        with open(filepath, 'rb') as f:
+            image_data = f.read()
+
+        import base64
+        encoded = base64.b64encode(image_data).decode()
+        ext = filepath.split('.')[-1].lower()
+        mime = 'image/jpeg' if ext in ['jpg', 'jpeg'] else 'image/png'
+
+        prompt = """Extract ALL financial transactions from this image.
+Return ONLY a JSON array with no markdown:
+[{"Date":"2024-01-15","Description":"Office Rent","Category":"Rent","Amount":1500.00}]
+Return ONLY valid JSON, no other text."""
+
+        response = model.generate_content([
+            {"inline_data": {"mime_type": mime, "data": encoded}},
+            prompt
+        ])
+
         text = response.text.strip()
-        if text.startswith("```json"):
-            text = text[7:-3]
-        elif text.startswith("```"):
-            text = text[3:-3]
-            
-        data = json.loads(text)
-        
-        if not data:
-             raise ValueError("Extracted JSON array is empty.")
-             
-        df = pd.DataFrame(data)
-        
-        # Ensure correct columns exist
+        text = re.sub(r'```json|```', '', text).strip()
+        transactions = json.loads(text)
+        df = pd.DataFrame(transactions)
+
+        # Ensure standard columns exist
         for col in ['Date', 'Description', 'Amount']:
             if col not in df.columns:
-                df[col] = "N/A" if col != 'Amount' else 0.0
-                
-        # Ensure Amount is numeric
+                df[col] = 'N/A' if col != 'Amount' else 0.0
+
         df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0.0)
-        
-        # Add default category
-        df['Category'] = 'Uncategorized'
-        
-        return df
-        
+        if 'Category' not in df.columns:
+            df['Category'] = 'Uncategorized'
+
+        return df, 'gemini_vision'
+
     except Exception as e:
-        print(f"Error parsing image with Gemini: {e}")
-        raise RuntimeError(f"Image parsing failed: {e}")
+        err_str = str(e)
+        print(f"[image_parser] Gemini error: {err_str}")
+        if '429' in err_str or 'quota' in err_str.lower() or 'rate' in err_str.lower():
+            print("[image_parser] Quota exceeded — falling back to OCR...")
+            return parse_image_with_ocr(filepath), 'ocr_fallback'
+        raise RuntimeError(f"Image parsing failed: {err_str}")

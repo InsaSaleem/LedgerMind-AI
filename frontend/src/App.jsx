@@ -1,23 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './index.css';
 import Uploader from './components/Uploader';
 import Chat from './components/Chat';
 import Dashboard from './components/Dashboard';
 
 function App() {
+  const [theme, setTheme] = useState(
+    () => localStorage.getItem('ledger-theme') || 'dark'
+  );
+
   const [appState, setAppState] = useState({
     stats: null,
     anomalies: [],
     uploaded: false,
-    filename: ''
+    filename: '',
+    parsing_method: 'standard',
   });
+
+  useEffect(() => {
+    localStorage.setItem('ledger-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
 
   const handleUploadSuccess = (data) => {
     setAppState({
       stats: data.stats,
       anomalies: data.anomalies || [],
       uploaded: true,
-      filename: data.filename || 'statement.csv'
+      filename: data.filename || 'statement',
+      parsing_method: data.parsing_method || 'standard',
     });
   };
 
@@ -37,46 +49,57 @@ function App() {
   };
 
   return (
-    <div className="app-container">
-      <header className="header" style={{ flexWrap: 'wrap' }}>
-        <div className="header-left">
-          <h1 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+    <div className={`app-root theme-${theme}`}>
+      {/* ── NAVBAR ── */}
+      <header className="navbar">
+        <div className="navbar-left">
+          <h1 className="navbar-logo">
             <span role="img" aria-label="brain">🧠</span> LedgerMind AI
           </h1>
         </div>
+
         {appState.uploaded && (
-          <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
-            Analyzing: {appState.filename}
+          <div className="navbar-center">
+            <span className="navbar-filename">
+              Analyzing: {appState.filename}
+            </span>
           </div>
         )}
-        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+
+        <div className="navbar-right">
           <div className="status-indicator">
-            <div className={`status-dot ${!appState.uploaded ? '' : 'pulsing'}`}></div>
+            <div className={`status-dot ${appState.uploaded ? 'pulsing' : ''}`} />
             {appState.uploaded ? 'Agent Ready' : 'System Online'}
           </div>
           {appState.uploaded && (
-            <button className="btn btn-secondary" onClick={handleExport}>
+            <button className="btn" onClick={handleExport}>
               Export Report
             </button>
           )}
+          <button className="theme-toggle" onClick={toggleTheme} title="Toggle theme">
+            {theme === 'dark' ? '☀️' : '🌙'}
+          </button>
         </div>
       </header>
 
+      {/* ── MAIN CONTENT ── */}
       {!appState.uploaded ? (
-        <div className="card">
-          <h2>Upload Financial Data</h2>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
-            Supports PDF bank statements, CSV, and Excel exports.
-          </p>
-          <Uploader onSuccess={handleUploadSuccess} />
-        </div>
+        <Uploader onSuccess={handleUploadSuccess} theme={theme} />
       ) : (
-        <div className="main-content">
-          <div className="left-panel">
-            <Dashboard stats={appState.stats} anomalies={appState.anomalies} />
-          </div>
-          <div className="right-panel">
-            <Chat />
+        <div className="panels-row">
+          {/* OCR fallback notice */}
+          {appState.parsing_method === 'ocr_fallback' && (
+            <div className="ocr-notice">
+              ⚠ AI Vision quota reached — used OCR fallback. Results may vary. Try again in 1 hour for full Gemini AI parsing.
+            </div>
+          )}
+          <div className="panel-columns">
+            <div className="left-panel">
+              <Dashboard stats={appState.stats} anomalies={appState.anomalies} />
+            </div>
+            <div className="right-panel">
+              <Chat theme={theme} />
+            </div>
           </div>
         </div>
       )}
