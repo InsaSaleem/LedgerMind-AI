@@ -23,9 +23,10 @@ global_app_state = {
 
 from agent.orchestrator import LedgerMindAgent
 
-# Initialize the Gemini Agent
-gemini_api_key = os.environ.get('GEMINI_API_KEY')
-agent = LedgerMindAgent(gemini_api_key)
+# Initialize the Gemini Agent with both keys
+gemini_api_key    = os.environ.get('GEMINI_API_KEY')
+gemini_vision_key = os.environ.get('GEMINI_VISION_KEY', gemini_api_key)
+agent = LedgerMindAgent(gemini_api_key, vision_api_key=gemini_vision_key)
 
 
 def _is_rate_limit(err_str):

@@ -5,15 +5,25 @@ import re
 import os
 from PIL import Image
 
+# ── OCR availability check (lazy — never fails on import) ──
+try:
+    import pytesseract
+    TESSERACT_AVAILABLE = True
+except Exception:
+    TESSERACT_AVAILABLE = False
+
 
 def parse_image_with_ocr(filepath):
     """
     OCR fallback using pytesseract when Gemini quota is exceeded.
+    Only called at upload time, never on page load.
     """
-    try:
-        import pytesseract
-    except ImportError:
-        raise RuntimeError("pytesseract not installed. Run: pip install pytesseract")
+    if not TESSERACT_AVAILABLE:
+        raise Exception(
+            "Image OCR unavailable (Tesseract not installed). "
+            "Please use CSV or Excel format instead, or try again "
+            "when Gemini AI quota resets."
+        )
 
     img = Image.open(filepath)
     text = pytesseract.image_to_string(img)
@@ -61,6 +71,11 @@ def parse_image_statement(filepath, api_key=None):
     """
     Uses Gemini Vision to parse an image of a receipt or bank statement.
     Falls back to pytesseract OCR if quota is exceeded.
+
+    Args:
+        filepath: path to the image file
+        api_key:  the GEMINI_VISION_KEY (dedicated image key, or falls back to main key)
+
     Returns: (pd.DataFrame, parsing_method_str)
     """
     try:

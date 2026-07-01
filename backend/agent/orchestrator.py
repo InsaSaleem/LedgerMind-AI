@@ -32,8 +32,10 @@ def call_gemini_with_retry(model, prompt, max_retries=3):
 
 
 class LedgerMindAgent:
-    def __init__(self, api_key):
+    def __init__(self, api_key, vision_api_key=None):
         self.api_key = api_key
+        # vision_api_key is for image parsing; falls back to main key if not set
+        self.vision_api_key = vision_api_key or api_key
         if api_key:
             genai.configure(api_key=api_key)
         # Using a model that supports function calling
@@ -59,8 +61,8 @@ class LedgerMindAgent:
                 df = parse_statement(filepath)
             elif file_type == 'image':
                 narrations.append("> parse_image_statement() — using Gemini Vision AI...")
-                result = parse_image_statement(filepath, self.api_key)
-                # image_parser now returns (df, method) tuple
+                result = parse_image_statement(filepath, self.vision_api_key)
+                # image_parser returns (df, method) tuple
                 if isinstance(result, tuple):
                     df, parsing_method = result
                 else:

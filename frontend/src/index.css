@@ -609,3 +609,99 @@
 ══════════════════════════════════════ */
 .anomaly-list  { list-style: none; margin-top: 12px; }
 .anomaly-item  { border-left: 3px solid var(--accent); padding-left: 12px; margin-bottom: 10px; color: var(--text); }
+
+/* ══════════════════════════════════════
+   RESPONSIVE — MOBILE (≤ 768px)
+══════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* Navbar: stack vertically */
+  .navbar {
+    flex-direction: column;
+    height: auto;
+    gap: 8px;
+    padding: 12px 16px;
+    align-items: flex-start;
+  }
+  .navbar-center { width: 100%; text-align: left; }
+  .navbar-right  { width: 100%; justify-content: space-between; }
+
+  /* Panel columns: stack */
+  .panel-columns {
+    flex-direction: column !important;
+    height: auto !important;
+  }
+  .left-panel {
+    width: 100% !important;
+    height: auto !important;
+    overflow-y: visible !important;
+  }
+  .right-panel {
+    width: 100% !important;
+    height: 500px !important;
+  }
+
+  /* Stat grid: 1 column */
+  .stat-grid-3 {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  /* Spending bars: smaller labels */
+  .bar-label {
+    width: 70px !important;
+    font-size: 10px !important;
+  }
+
+  /* Chat bubbles */
+  .chat-bubble-wrap {
+    max-width: 92% !important;
+  }
+
+  /* Upload page hero */
+  .hero-heading {
+    font-size: 32px !important;
+    line-height: 1.2 !important;
+  }
+  .hero-subtitle {
+    font-size: 15px !important;
+  }
+  .feature-pills {
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+  }
+
+  /* Stat boxes: stack */
+  .upload-stat-row {
+    flex-direction: column !important;
+  }
+  .upload-stat-box { width: 100% !important; }
+
+  /* Upload card */
+  .upload-card {
+    max-width: 100% !important;
+    padding: 20px !important;
+    margin: 0 !important;
+  }
+  .upload-page {
+    padding: 32px 16px 60px !important;
+  }
+
+  /* Panels wrapper: remove side padding on mobile */
+  .panels-row {
+    padding: 10px 12px !important;
+  }
+}
+
+/* ══════════════════════════════════════
+   RESPONSIVE — TABLET (768px – 1024px)
+══════════════════════════════════════ */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .left-panel  { width: 45% !important; }
+  .right-panel { width: 55% !important; }
+
+  .hero-heading { font-size: 40px !important; }
+
+  .stat-grid-3 { grid-template-columns: 1fr 1fr !important; }
+}
+
