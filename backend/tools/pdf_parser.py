@@ -30,6 +30,7 @@ def parse_pdf_statement(filepath):
                         df_list.extend(_parse_table_to_rows(table))
     except Exception as e:
         print(f"Error with pdfplumber: {e}")
+        # We don't raise here yet because we want to try the OCR fallback
 
     # Fallback to OCR if no meaningful text was extracted (scanned PDF)
     if not text_extracted:
@@ -41,6 +42,10 @@ def parse_pdf_statement(filepath):
                 df_list.extend(_parse_text_to_rows(text))
         except Exception as e:
             print(f"OCR failed. Please ensure Tesseract is installed. {e}")
+            raise RuntimeError(f"PDF parsing failed: no text could be extracted natively, and OCR failed: {e}")
+
+    if not df_list:
+        raise ValueError("Failed to extract any meaningful transaction rows from the PDF.")
 
     # Deduplicate and clean
     df = pd.DataFrame(df_list, columns=['Date', 'Description', 'Amount'])

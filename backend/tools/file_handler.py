@@ -15,6 +15,8 @@ def detect_file_type(filepath):
         return 'csv'
     elif ext in ['.xls', '.xlsx']:
         return 'excel'
+    elif ext in ['.jpg', '.jpeg', '.png']:
+        return 'image'
     
     # Try mimetypes if extension isn't clear
     mime_type, _ = mimetypes.guess_type(filepath)
@@ -25,5 +27,7 @@ def detect_file_type(filepath):
             return 'csv'
         elif mime_type in ['application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']:
             return 'excel'
+        elif mime_type.startswith('image/'):
+            return 'image'
             
     return 'unknown'

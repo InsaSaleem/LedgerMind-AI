@@ -3,6 +3,7 @@ import json
 from tools.file_handler import detect_file_type
 from tools.pdf_parser import parse_pdf_statement
 from tools.data_parser import parse_statement
+from tools.image_parser import parse_image_statement
 from tools.analyzer import detect_anomalies
 from tools.visualizer import generate_chart
 
@@ -11,7 +12,7 @@ class LedgerMindAgent:
         if api_key:
             genai.configure(api_key=api_key)
         # Using a model that supports function calling
-        self.model = genai.GenerativeModel('gemini-1.5-pro')
+        self.model = genai.GenerativeModel('gemini-1.5-flash')
         
     def process_uploaded_file(self, filepath):
         """
@@ -23,15 +24,24 @@ class LedgerMindAgent:
         file_type = detect_file_type(filepath)
         
         df = None
-        if file_type == 'pdf':
-            narrations.append(f"Detected PDF statement. Extracting transaction table (with OCR fallback if needed)...")
-            df = parse_pdf_statement(filepath)
-        elif file_type in ['csv', 'excel']:
-            narrations.append(f"Detected {file_type.upper()} file. Normalizing data...")
-            df = parse_statement(filepath)
-        else:
-            narrations.append("Error: Unsupported file type.")
-            return {'error': 'Unsupported file type', 'narration': narrations}
+        try:
+            if file_type == 'pdf':
+                narrations.append(f"Detected PDF statement. Extracting transaction table (with OCR fallback if needed)...")
+                df = parse_pdf_statement(filepath)
+            elif file_type in ['csv', 'excel']:
+                narrations.append(f"Detected {file_type.upper()} file. Normalizing data...")
+                df = parse_statement(filepath)
+            elif file_type == 'image':
+                narrations.append(f"Detected Image file. Using Vision AI to extract transactions...")
+                df = parse_image_statement(filepath)
+            else:
+                narrations.append("Error: Unsupported file type.")
+                return {'error': 'Unsupported file type', 'narration': narrations}
+        except Exception as e:
+            print(f"Agent Orchestrator Error during parsing: {e}")
+            narrations.append(f"Error parsing file: {e}")
+            return {'error': str(e), 'narration': narrations, 'dataframe': None, 'anomalies': []}
+            
             
         narrations.append(f"Successfully parsed {len(df)} transactions. Detecting anomalies...")
         anomalies = detect_anomalies(df)
@@ -105,6 +115,6 @@ class LedgerMindAgent:
         except Exception as e:
              # Fallback
              return {
-                 'text_reply': f"I processed your query: {response.text}",
-                 'narrations': ["Used LLM to answer query."]
+                 'text_reply': f"Error processing query: {str(e)}",
+                 'narrations': ["Failed to process query due to an error."]
              }

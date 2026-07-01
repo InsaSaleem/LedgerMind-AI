@@ -1,13 +1,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  --bg-primary: #FFFFFF;
-  --bg-secondary: #F5F5F5;
-  --text-primary: #0A0A0A;
-  --text-secondary: #666666;
+  --bg-primary: #0A0A0A;
+  --bg-secondary: #141414;
+  --text-primary: #FFFFFF;
+  --text-secondary: #888888;
   --accent: #00D26A;
   --accent-hover: #00B359;
-  --border: #E0E0E0;
+  --border: #2A2A2A;
   --radius: 8px;
   --font-family: 'Inter', sans-serif;
 }
@@ -20,7 +20,7 @@
 
 body {
   font-family: var(--font-family);
-  background-color: var(--bg-secondary);
+  background-color: var(--bg-primary);
   color: var(--text-primary);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -40,34 +40,78 @@ body {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 .header h1 {
   font-size: 24px;
-  font-weight: 600;
-  letter-spacing: -0.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  background-color: var(--accent);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--accent);
+}
+
+.status-dot.pulsing {
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 210, 106, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(0, 210, 106, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 210, 106, 0); }
 }
 
 /* Card Style */
 .card {
-  background-color: var(--bg-primary);
+  background-color: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 24px;
 }
 
+.card h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
 /* Buttons */
 .btn {
   background-color: var(--accent);
-  color: var(--bg-primary);
+  color: #0A0A0A;
   border: none;
   border-radius: var(--radius);
   padding: 10px 16px;
   font-family: var(--font-family);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 700;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .btn:hover {
@@ -75,7 +119,7 @@ body {
 }
 
 .btn-secondary {
-  background-color: var(--bg-primary);
+  background-color: transparent;
   color: var(--text-primary);
   border: 1px solid var(--border);
 }
@@ -99,22 +143,38 @@ body {
 
 /* Uploader */
 .uploader {
-  border: 2px dashed var(--border);
+  border: 2px dashed rgba(0, 210, 106, 0.4);
   border-radius: var(--radius);
   padding: 40px 20px;
   text-align: center;
   cursor: pointer;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .uploader:hover {
   border-color: var(--accent);
-  background-color: rgba(0, 210, 106, 0.05);
+  box-shadow: 0 0 12px rgba(0, 210, 106, 0.2);
+}
+
+.uploader.dragging {
+  background-color: rgba(0, 210, 106, 0.08);
+  border-color: var(--accent);
 }
 
 .uploader p {
+  color: var(--text-primary);
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.uploader .subtext {
   color: var(--text-secondary);
-  margin-bottom: 12px;
+  font-size: 12px;
 }
 
 /* Dashboard */
@@ -129,19 +189,25 @@ body {
   background-color: var(--bg-secondary);
   padding: 16px;
   border-radius: var(--radius);
+  border-left: 3px solid var(--accent);
 }
 
 .stat-value {
   font-size: 24px;
-  font-weight: 600;
+  font-weight: 700;
+  color: var(--text-primary);
   margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .stat-label {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.1em;
+  font-weight: 600;
 }
 
 /* Chat */
@@ -149,16 +215,15 @@ body {
   display: flex;
   flex-direction: column;
   height: 600px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
 }
 
 .chat-history {
   flex-grow: 1;
   overflow-y: auto;
   padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
   margin-bottom: 16px;
-  background-color: var(--bg-secondary);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -168,28 +233,44 @@ body {
   max-width: 80%;
   padding: 12px 16px;
   border-radius: var(--radius);
+  font-size: 14px;
+  position: relative;
 }
 
 .message.user {
   align-self: flex-end;
-  background-color: var(--text-primary);
-  color: var(--bg-primary);
+  background-color: var(--accent);
+  color: #0A0A0A;
 }
 
 .message.agent {
   align-self: flex-start;
-  background-color: var(--bg-primary);
-  border: 1px solid var(--border);
+  background-color: #1E1E1E;
+  color: var(--text-primary);
 }
 
 .message.narration {
-  align-self: center;
+  align-self: flex-start;
   background-color: transparent;
-  color: var(--text-secondary);
+  color: var(--accent);
+  font-family: monospace;
   font-size: 12px;
-  font-style: italic;
   max-width: 100%;
-  text-align: center;
+  text-align: left;
+  padding: 4px 0;
+  border: none;
+}
+
+.message-timestamp {
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  display: block;
+  text-align: right;
+}
+
+.message.user .message-timestamp {
+  color: rgba(0, 0, 0, 0.6);
 }
 
 .chat-input-area {
@@ -204,11 +285,18 @@ body {
   border-radius: var(--radius);
   font-family: var(--font-family);
   font-size: 14px;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: border-color 0.2s ease;
 }
 
 .chat-input:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+.chat-input::placeholder {
+  color: var(--text-secondary);
 }
 
 /* Utilities */
@@ -221,4 +309,5 @@ body {
   border-left: 3px solid var(--accent);
   padding-left: 12px;
   margin-bottom: 12px;
+  color: var(--text-primary);
 }

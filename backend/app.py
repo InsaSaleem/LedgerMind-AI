@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
@@ -51,16 +51,28 @@ def upload_file():
             if response.get('dataframe') is not None:
                 global_app_state['dataframe'] = response['dataframe']
                 global_app_state['anomalies'] = response.get('anomalies', [])
+            
+            # If the response explicitly returned an error (e.g. from orchestrator exception)
+            if 'error' in response:
+                print(f"Upload flow generated an error response: {response['error']}")
+                return jsonify({'error': response['error'], 'agent_narration': response.get('narration', [])}), 400
                 
+            total_spend = 0
+            if global_app_state['dataframe'] is not None and not global_app_state['dataframe'].empty:
+                total_spend = float(global_app_state['dataframe']['Amount'].sum())
+
             return jsonify({
                 'message': 'File uploaded and processed successfully',
+                'filename': filename,
                 'agent_narration': response.get('narration', []),
+                'anomalies': global_app_state['anomalies'],
                 'stats': {
-                    'total_spend': global_app_state['dataframe']['Amount'].sum() if global_app_state['dataframe'] is not None else 0,
+                    'total_spend': total_spend,
                     'anomaly_count': len(global_app_state['anomalies'])
                 }
             }), 200
         except Exception as e:
+            print(f"Flask App Route Exception: {e}")
             return jsonify({'error': str(e)}), 500
 
 @app.route('/api/chat', methods=['POST'])
@@ -115,6 +127,10 @@ def export_report():
     # In a real app we'd use send_file, but for the MVP, sending the URL/Path is fine, 
     # or returning a base64 encoded PDF.
     return jsonify({'report_url': report_path}), 200
+
+@app.route('/api/download/<filename>')
+def download_file(filename):
+    return send_file(os.path.join(app.config['UPLOAD_FOLDER'], filename), as_attachment=True)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

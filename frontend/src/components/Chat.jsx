@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 
 const Chat = () => {
   const [messages, setMessages] = useState([
-    { type: 'agent', content: 'Hello! Your financial data is ready. Ask me anything about your spending.' }
+    { type: 'agent', content: 'Hello! Your financial data is ready. Ask me anything about your spending.', timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -11,7 +11,8 @@ const Chat = () => {
     if (!input.trim()) return;
 
     const userMsg = input.trim();
-    setMessages(prev => [...prev, { type: 'user', content: userMsg }]);
+    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setMessages(prev => [...prev, { type: 'user', content: userMsg, timestamp }]);
     setInput('');
     setIsTyping(true);
 
@@ -32,12 +33,12 @@ const Chat = () => {
 
       // Add actual reply
       if (data.reply) {
-         setMessages(prev => [...prev, { type: 'agent', content: data.reply }]);
+         setMessages(prev => [...prev, { type: 'agent', content: data.reply, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
       }
 
       // Render chart if generated
       if (data.chart) {
-         setMessages(prev => [...prev, { type: 'agent', isImage: true, content: data.chart }]);
+         setMessages(prev => [...prev, { type: 'agent', isImage: true, content: data.chart, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
       }
 
     } catch (err) {
@@ -53,9 +54,17 @@ const Chat = () => {
         {messages.map((msg, idx) => (
           <div key={idx} className={`message ${msg.type}`}>
              {msg.isImage ? <img src={msg.content} alt="Chart" style={{ maxWidth: '100%', borderRadius: '4px' }} /> : msg.content}
+             {msg.timestamp && msg.type !== 'narration' && (
+               <span className="message-timestamp">{msg.timestamp}</span>
+             )}
           </div>
         ))}
-        {isTyping && <div className="message narration">Agent is thinking...</div>}
+        {isTyping && (
+          <div className="message narration" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+             <div className="status-dot pulsing"></div>
+             Agent is thinking...
+          </div>
+        )}
       </div>
       <div className="chat-input-area">
         <input 
@@ -66,7 +75,12 @@ const Chat = () => {
           onKeyDown={e => e.key === 'Enter' && handleSend()}
           placeholder="Ask a financial question..."
         />
-        <button className="btn" onClick={handleSend}>Send</button>
+        <button className="btn" onClick={handleSend}>
+          Send
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+          </svg>
+        </button>
       </div>
     </div>
   );
