@@ -1,0 +1,41 @@
+# === Python ===
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+venv/
+env/
+.venv/
+
+# === Environment / Secrets ===
+.env
+backend/.env
+*.env
+
+# === Uploads (user data) ===
+backend/uploads/*.pdf
+backend/uploads/*.csv
+backend/uploads/*.xlsx
+backend/uploads/*.xls
+backend/uploads/*.jpg
+backend/uploads/*.jpeg
+backend/uploads/*.png
+
+# === Node / Frontend ===
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# === IDEs ===
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# === OS ===
+.DS_Store
+Thumbs.db
