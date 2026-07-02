@@ -36,11 +36,13 @@ function App() {
 
   const handleExport = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/export', { method: 'POST' });
+      // localhost ko hata kar Vercel ka live URL laga diya
+      const res = await fetch('https://ledger-mind-ai.vercel.app/api/export', { method: 'POST' });
       const data = await res.json();
       if (data.report_url) {
         const link = document.createElement('a');
-        link.href = `http://localhost:5000${data.report_url}`;
+        // Yahan bhi live URL update kar diya
+        link.href = `https://ledger-mind-ai.vercel.app${data.report_url}`;
         link.download = 'LedgerMind_Report.pdf';
         link.click();
       }
