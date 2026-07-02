@@ -8,5 +8,5 @@ export default defineConfig({
     outDir: '../docs',
     emptyOutDir: true,
   },
-  base: './', // Ensures assets load correctly on GitHub Pages
+  base: '/LedgerMind-AI/', // Ensures assets load correctly on GitHub Pages
 })
