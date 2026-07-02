@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 
 const PRIORITY_CONFIG = {
   high:   { color: '#FF4444', bg: 'rgba(255, 68, 68, 0.10)', label: 'High' },
@@ -14,7 +14,7 @@ const CATEGORY_ICONS = {
   plan:        '📅',
 };
 
-const Tasks = ({ theme }) => {
+const Tasks = () => {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

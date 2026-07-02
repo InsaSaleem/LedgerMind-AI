@@ -36,10 +36,9 @@ const Dashboard = ({ stats: initialStats, anomalies: initialAnomalies = [] }) =>
 
   // Max for bar scaling
   const maxCategoryAmount = categoryData.length > 0 ? Math.max(...categoryData.map(c => c[1])) : 1;
-  const totalCategorySpend = categoryData.reduce((s, c) => s + c[1], 0) || 1;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxHeight: 'calc(100vh - 120px)', overflowY: 'auto', paddingRight: '10px' }}>
 
       {/* ── STAT CARDS ── */}
       <div className="card">
@@ -80,7 +79,7 @@ const Dashboard = ({ stats: initialStats, anomalies: initialAnomalies = [] }) =>
           {/* Top Category */}
           <div className="stat-item">
             <div className="stat-label">Top Category</div>
-            <div className="stat-value" style={{ fontSize: '16px', wordBreak: 'break-word' }}>
+            <div className="stat-value" style={{ fontSize: '16px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {topCategoryName}
             </div>
             <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>

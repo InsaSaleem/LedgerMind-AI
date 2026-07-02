@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 
-const Chat = ({ theme }) => {
+const Chat = () => {
   const [messages, setMessages] = useState([
     {
       type: 'agent',
@@ -55,7 +55,7 @@ const Chat = ({ theme }) => {
         }]);
       }
 
-    } catch (err) {
+    } catch (_err) {
       setMessages(prev => [...prev, {
         type: 'agent',
         content: 'Error communicating with agent.',

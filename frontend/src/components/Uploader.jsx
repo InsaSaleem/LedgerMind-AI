@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 
 const FEATURE_PILLS = [
   { icon: '⚡', label: 'Instant Analysis' },
@@ -12,12 +12,12 @@ const STAT_BOXES = [
   { emoji: '🔒', title: 'Private', sub: 'Processed Locally' },
 ];
 
-const Uploader = ({ onSuccess, theme }) => {
+const Uploader = ({ onSuccess }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const handleDrag = useCallback((e) => {
+  const handleDrag = (e) => {
     e.preventDefault();
     e.stopPropagation();
     if (e.type === 'dragenter' || e.type === 'dragover') {
@@ -25,15 +25,15 @@ const Uploader = ({ onSuccess, theme }) => {
     } else if (e.type === 'dragleave') {
       setIsDragging(false);
     }
-  }, []);
+  };
 
-  const handleDrop = useCallback((e) => {
+  const handleDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
     const files = e.dataTransfer.files;
     if (files && files.length > 0) uploadFile(files[0]);
-  }, []);
+  };
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) uploadFile(e.target.files[0]);

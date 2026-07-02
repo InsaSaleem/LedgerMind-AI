@@ -65,6 +65,24 @@
 }
 
 /* ══════════════════════════════════════
+   CUSTOM SCROLLBAR
+══════════════════════════════════════ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: #333333;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* ══════════════════════════════════════
    NAVBAR
 ══════════════════════════════════════ */
 .navbar {
@@ -412,6 +430,8 @@
   padding: 14px;
   border-radius: 8px;
   border-left: 3px solid var(--accent);
+  min-width: 0;
+  overflow: hidden;
 }
 .stat-label {
   font-size: 11px;

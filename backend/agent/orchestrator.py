@@ -42,7 +42,7 @@ class LedgerMindAgent:
         if api_key:
             genai.configure(api_key=api_key)
         # Using a model that supports function calling
-        self.model = genai.GenerativeModel('gemini-2.0-flash')
+        self.model = genai.GenerativeModel('gemini-1.5-flash')
 
     def process_uploaded_file(self, filepath):
         """
