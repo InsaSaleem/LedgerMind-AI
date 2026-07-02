@@ -36,10 +36,7 @@ The frontend is built with a premium, minimal aesthetic, utilizing pure CSS to e
 - **`Uploader.jsx`**: A streamlined drag-and-drop file ingestion point.
 
 ## Workflow Images
-*(Placeholder for UI screenshots and workflow diagrams)*
-- `[Insert Image: Dashboard Overview]`
-- `[Insert Image: Agentic Chat Output]`
-- `[Insert Image: Generated PDF Report]`
+![Dashboard Overview](docs/screenshot.png)
 
 ## Setup & Installation
 
@@ -57,7 +54,11 @@ source venv/bin/activate  # On Windows use `venv\Scripts\activate`
 pip install -r requirements.txt
 # Add .env file with GEMINI_API_KEY=your_key
 flask run
+
 ```
+OR
+cd "C:\Users\123\Desktop\LedgerMind AI\backend"
+python app.py
 
 ### Frontend Setup
 ```bash
