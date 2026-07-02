@@ -95,10 +95,12 @@ function App() {
             </div>
           )}
           <div className="panel-columns">
+            {/* Unified Scrollable Left Panel */}
             <div className="left-panel">
-              <Dashboard stats={appState.stats} anomalies={appState.anomalies} />
+              <Dashboard stats={appState.stats} anomalies={appState.anomalies} parsingMethod={appState.parsing_method} />
               <Tasks theme={theme} />
             </div>
+            {/* Right Panel — AI Chat remains fixed */}
             <div className="right-panel">
               <Chat theme={theme} />
             </div>

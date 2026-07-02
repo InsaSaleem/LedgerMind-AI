@@ -60,7 +60,10 @@
   font-family: 'Inter', sans-serif;
   background: var(--bg);
   color: var(--text);
-  min-height: 100vh;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -195,7 +198,8 @@
   flex-direction: column;
   align-items: center;
   padding: 64px 24px 80px;
-  min-height: calc(100vh - 60px);
+  flex: 1;
+  overflow-y: auto;
   background: var(--bg);
 }
 
@@ -349,9 +353,12 @@
   flex-direction: column;
   gap: 12px;
   padding: 16px 20px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
-/* OCR fallback notice */
+/* OCR fallback notice — flex-shrink:0 so it never collapses the panels below */
 .ocr-notice {
   background: #1A1400;
   border: 1px solid rgba(255, 179, 0, 0.25);
@@ -359,14 +366,17 @@
   border-radius: 8px;
   padding: 10px 14px;
   font-size: 13px;
+  flex-shrink: 0;
 }
 
+/* panel-columns uses flex-1 so it always fills whatever space remains */
 .panel-columns {
   display: flex;
   flex-direction: row;
   align-items: stretch;
   gap: 16px;
-  height: calc(100vh - 140px);
+  flex: 1;
+  min-height: 0; /* required for flex children to scroll correctly */
 }
 
 .left-panel {
@@ -387,8 +397,13 @@
 }
 
 @media (max-width: 768px) {
+  .panels-row {
+    height: auto;
+    overflow: visible;
+  }
   .panel-columns {
     flex-direction: column;
+    flex: unset;
     height: auto;
   }
   .left-panel, .right-panel {

@@ -38,7 +38,7 @@ const Dashboard = ({ stats: initialStats, anomalies: initialAnomalies = [] }) =>
   const maxCategoryAmount = categoryData.length > 0 ? Math.max(...categoryData.map(c => c[1])) : 1;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxHeight: 'calc(100vh - 120px)', overflowY: 'auto', paddingRight: '10px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
       {/* ── STAT CARDS ── */}
       <div className="card">

@@ -13,6 +13,33 @@ except Exception:
     TESSERACT_AVAILABLE = False
 
 
+def auto_categorize(description):
+    """Keyword-based categorizer for OCR-extracted transactions."""
+    desc = description.lower()
+    if any(w in desc for w in ['rent', 'office', 'warehouse', 'storage']):
+        return 'Rent'
+    elif any(w in desc for w in ['salary', 'wage', 'payroll', 'staff']):
+        return 'Salaries'
+    elif any(w in desc for w in ['google', 'facebook', 'instagram', 'ads', 'marketing', 'campaign']):
+        return 'Marketing'
+    elif any(w in desc for w in ['electric', 'water', 'internet', 'phone', 'utility', 'bill']):
+        return 'Utilities'
+    elif any(w in desc for w in ['supplier', 'fabric', 'textile', 'wholesale', 'vendor']):
+        return 'Suppliers'
+    elif any(w in desc for w in ['shopify', 'zoom', 'canva', 'software', 'subscription', 'saas']):
+        return 'Software & SaaS'
+    elif any(w in desc for w in ['fuel', 'transport', 'courier', 'delivery', 'shipping']):
+        return 'Transport'
+    elif any(w in desc for w in ['packaging', 'supplies', 'stationery', 'office supply']):
+        return 'Supplies'
+    elif any(w in desc for w in ['repair', 'maintenance', 'equipment', 'emergency']):
+        return 'Maintenance'
+    elif any(w in desc for w in ['grocery', 'food', 'lunch', 'meal', 'metro']):
+        return 'Food & Groceries'
+    else:
+        return 'General'
+
+
 def parse_image_with_ocr(filepath):
     """
     OCR fallback using pytesseract when Gemini quota is exceeded.
@@ -56,7 +83,7 @@ def parse_image_with_ocr(filepath):
                         transactions.append({
                             'Date': date,
                             'Description': desc[:50],
-                            'Category': 'Uncategorized',
+                            'Category': 'General',
                             'Amount': amount
                         })
             except ValueError:
@@ -64,7 +91,11 @@ def parse_image_with_ocr(filepath):
 
     if not transactions:
         return pd.DataFrame(columns=['Date', 'Description', 'Category', 'Amount'])
-    return pd.DataFrame(transactions)
+
+    df = pd.DataFrame(transactions)
+    # Apply keyword-based auto-categorization so data looks meaningful
+    df['Category'] = df['Description'].apply(auto_categorize)
+    return df
 
 
 def _create_vision_model(api_key):
