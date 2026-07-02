@@ -1,41 +1,43 @@
-# === Python ===
+# Environment variables — NEVER commit these
+.env
+backend/.env
+**/.env
+
+# Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.Python
-*.egg-info/
-dist/
-build/
 venv/
-env/
 .venv/
+backend/venv/
 
-# === Environment / Secrets ===
-.env
-backend/.env
-*.env
-
-# === Uploads (user data) ===
+# Uploads (generated files, test data)
 backend/uploads/*.pdf
 backend/uploads/*.csv
 backend/uploads/*.xlsx
-backend/uploads/*.xls
 backend/uploads/*.jpg
 backend/uploads/*.jpeg
 backend/uploads/*.png
 
-# === Node / Frontend ===
+# Node
 node_modules/
 frontend/node_modules/
-frontend/dist/
 
-# === IDEs ===
+# Build output
+dist/
+frontend/dist/
+*.egg-info/
+.eggs/
+
+# IDE
 .vscode/settings.json
 .idea/
-*.swp
-*.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
 
-# === OS ===
+# OS
 .DS_Store
 Thumbs.db

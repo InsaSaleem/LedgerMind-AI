@@ -358,16 +358,7 @@
   overflow: hidden;
 }
 
-/* OCR fallback notice — flex-shrink:0 so it never collapses the panels below */
-.ocr-notice {
-  background: #1A1400;
-  border: 1px solid rgba(255, 179, 0, 0.25);
-  color: #FFB300;
-  border-radius: 8px;
-  padding: 10px 14px;
-  font-size: 13px;
-  flex-shrink: 0;
-}
+
 
 /* panel-columns uses flex-1 so it always fills whatever space remains */
 .panel-columns {
@@ -944,4 +935,28 @@
   margin-top: 2px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+/* ══════════════════════════════════════
+   LEFT PANEL CUSTOM SCROLLBAR
+══════════════════════════════════════ */
+.left-panel::-webkit-scrollbar {
+  width: 5px;
+}
+.left-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+.left-panel::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 3px;
+}
+.left-panel::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* Rate limit bubble override */
+.chat-bubble.rate-limit {
+  background: #1A1400;
+  color: #FFB300;
+  border: 1px solid rgba(255, 179, 0, 0.25);
 }

@@ -83,7 +83,7 @@ def parse_image_with_ocr(filepath):
                         transactions.append({
                             'Date': date,
                             'Description': desc[:50],
-                            'Category': 'General',
+                            'Category': auto_categorize(desc),
                             'Amount': amount
                         })
             except ValueError:
@@ -137,7 +137,11 @@ def parse_image_statement(filepath, api_key=None, restore_key=None):
     """
     try:
         if not api_key:
-            raise RuntimeError("No API key provided for image parsing.")
+            import os
+            api_key = os.environ.get('GEMINI_API_KEY') or \
+                      os.environ.get('GEMINI_VISION_KEY')
+            if not api_key:
+                raise RuntimeError("No API key provided for image parsing.")
 
         model = _create_vision_model(api_key)
 

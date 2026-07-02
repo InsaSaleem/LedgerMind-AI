@@ -87,21 +87,44 @@ function App() {
       {!appState.uploaded ? (
         <Uploader onSuccess={handleUploadSuccess} theme={theme} />
       ) : (
-        <div className="panels-row">
-          {/* OCR fallback notice */}
-          {appState.parsing_method === 'ocr_fallback' && (
-            <div className="ocr-notice">
-              ⚠ AI Vision quota reached — used OCR fallback. Results may vary. Try again in 1 hour for full Gemini AI parsing.
-            </div>
-          )}
-          <div className="panel-columns">
+        <div className="panels-row" style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+          padding: '16px 20px',
+          flex: 1,
+          minHeight: 0,
+          overflow: 'hidden'
+        }}>
+          <div className="panel-columns" style={{
+            display: 'flex',
+            flexDirection: 'row',
+            alignItems: 'stretch',
+            gap: '16px',
+            flex: 1,
+            minHeight: 0
+          }}>
             {/* Unified Scrollable Left Panel */}
-            <div className="left-panel">
+            <div className="left-panel" style={{
+              width: '40%',
+              height: '100%',
+              overflowY: 'scroll',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              paddingRight: '4px'
+            }}>
               <Dashboard stats={appState.stats} anomalies={appState.anomalies} parsingMethod={appState.parsing_method} />
               <Tasks theme={theme} />
             </div>
             {/* Right Panel — AI Chat remains fixed */}
-            <div className="right-panel">
+            <div className="right-panel" style={{
+              width: '60%',
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: 0
+            }}>
               <Chat theme={theme} />
             </div>
           </div>

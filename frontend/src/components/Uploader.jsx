@@ -28,6 +28,7 @@ const Uploader = ({ onSuccess }) => {
   };
 
   const handleDrop = (e) => {
+    setErrorMsg('');
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
@@ -36,6 +37,7 @@ const Uploader = ({ onSuccess }) => {
   };
 
   const handleFileChange = (e) => {
+    setErrorMsg('');
     if (e.target.files && e.target.files.length > 0) uploadFile(e.target.files[0]);
   };
 

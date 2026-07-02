@@ -50,6 +50,8 @@ def _safe_total_spend(df):
 
 @app.route('/api/upload', methods=['POST'])
 def upload_file():
+    print(f"GEMINI_API_KEY loaded: {'YES' if gemini_api_key else 'NO'}")
+    print(f"GEMINI_VISION_KEY loaded: {'YES' if gemini_vision_key else 'NO'}")
     if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
 
