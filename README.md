@@ -36,7 +36,7 @@ The frontend is built with a premium, minimal aesthetic, utilizing pure CSS to e
 - **`Uploader.jsx`**: A streamlined drag-and-drop file ingestion point.
 
 ## Workflow Images
-![Dashboard Overview](docs/screenshot.png)
+![Dashboard Overview](frontend/src/assets/hero.png)
 
 ## Setup & Installation
 
