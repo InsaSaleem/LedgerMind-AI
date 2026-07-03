@@ -48,7 +48,7 @@ const Uploader = ({ onSuccess }) => {
     formData.append('file', file);
 
     try {
-      const response = await fetch('http://localhost:5000/api/upload', {
+      const response = await fetch('${import.meta.env.VITE_API_URL || '}/api/upload', {
         method: 'POST',
         body: formData,
       });
@@ -64,7 +64,7 @@ const Uploader = ({ onSuccess }) => {
       }
     } catch (error) {
       console.error(error);
-      setErrorMsg('Error connecting to server. Make sure the backend is running on port 5000.');
+      setErrorMsg('Error connecting to server. Make sure the backend is running and accessible.');
     } finally {
       setIsUploading(false);
     }
@@ -162,3 +162,5 @@ const Uploader = ({ onSuccess }) => {
 };
 
 export default Uploader;
+
+

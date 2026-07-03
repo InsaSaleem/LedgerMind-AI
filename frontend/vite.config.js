@@ -5,8 +5,8 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   build: {
-    outDir: '../docs',
+    outDir: process.env.VERCEL ? 'dist' : '../docs',
     emptyOutDir: true,
   },
-  base: '/LedgerMind-AI/', // Ensures assets load correctly on GitHub Pages
+  base: process.env.VERCEL ? '/' : '/LedgerMind-AI/', // Ensures assets load correctly on GitHub Pages
 })
