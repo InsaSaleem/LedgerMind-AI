@@ -11,7 +11,7 @@ const Dashboard = ({ stats: initialStats, anomalies: initialAnomalies = [] }) =>
   // Fetch full dashboard data (with categories) from /api/dashboard on mount
   useEffect(() => {
     setMounted(true);
-    fetch('${import.meta.env.VITE_API_URL || '}/api/dashboard')
+    fetch(`${import.meta.env.VITE_API_URL || ''}/api/dashboard`)
       .then(r => r.json())
       .then(data => {
         if (data.stats) {

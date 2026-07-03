@@ -24,7 +24,7 @@ const Tasks = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('${import.meta.env.VITE_API_URL || '}/api/tasks');
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/tasks`);
       const data = await res.json();
       if (data.tasks) {
         setTasks(data.tasks);
