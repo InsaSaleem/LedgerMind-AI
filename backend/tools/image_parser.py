@@ -53,7 +53,13 @@ def parse_image_with_ocr(filepath):
         )
 
     img = Image.open(filepath)
-    text = pytesseract.image_to_string(img)
+    try:
+        text = pytesseract.image_to_string(img)
+    except Exception as e:
+        if "tesseract is not installed" in str(e).lower() or "not in your path" in str(e).lower():
+            raise Exception("⏳ AI quota reached. (OCR fallback is also unavailable because Tesseract is not installed on Vercel). Please wait 60 seconds and try again.")
+        raise e
+    
     transactions = []
     lines = text.split('\n')
     amount_pat = re.compile(r'\$?([\d,]+\.?\d{0,2})')

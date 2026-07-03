@@ -55,8 +55,13 @@ def parse_pdf_statement(filepath):
         try:
             images = convert_from_path(filepath)
             for image in images:
-                text = pytesseract.image_to_string(image)
-                df_list.extend(_parse_text_to_rows(text))
+                try:
+                    text = pytesseract.image_to_string(image)
+                    df_list.extend(_parse_text_to_rows(text))
+                except Exception as e:
+                    if "tesseract is not installed" in str(e).lower():
+                        raise RuntimeError("PDF parsing failed: native extraction failed, and OCR fallback is unavailable (Tesseract not installed on Vercel).")
+                    raise e
         except Exception as e:
             print(f"OCR failed. Please ensure Tesseract is installed. {e}")
             raise RuntimeError(f"PDF parsing failed: no text could be extracted natively, and OCR failed: {e}")
