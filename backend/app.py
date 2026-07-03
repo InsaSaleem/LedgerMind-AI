@@ -11,7 +11,11 @@ app = Flask(__name__)
 # Purani line: CORS(app) ko is se replace karein
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
+# Use /tmp for serverless environments like Vercel
+if os.environ.get('VERCEL') or os.environ.get('VERCEL_ENV'):
+    UPLOAD_FOLDER = os.path.join('/tmp', 'uploads')
+else:
+    UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
