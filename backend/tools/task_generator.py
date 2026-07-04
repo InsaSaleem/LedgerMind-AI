@@ -1,13 +1,16 @@
-import google.generativeai as genai
+from google import genai
 import json
 import time
 
 
-def call_tasks_model_with_retry(model, prompt, max_retries=3):
+def call_tasks_model_with_retry(client, model_name, prompt, max_retries=3):
     """Wrap Gemini calls with exponential-backoff retry on 429 quota errors."""
     for attempt in range(max_retries):
         try:
-            response = model.generate_content(prompt)
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt
+            )
             return response
         except Exception as e:
             err_str = str(e)
@@ -40,9 +43,8 @@ def generate_financial_tasks(df, anomalies, tasks_api_key):
         return _generate_fallback_tasks(df, anomalies)
 
     try:
-        # Configure with the tasks-specific key
-        genai.configure(api_key=tasks_api_key)
-        model = genai.GenerativeModel('gemini-2.0-flash')
+        client = genai.Client(api_key=tasks_api_key)
+        model_name = 'gemini-2.0-flash'
 
         # Build context
         total_spend = float(df['Amount'].sum()) if 'Amount' in df.columns else 0
@@ -82,7 +84,7 @@ Generate tasks as a JSON array. Each task should have:
 
 Return ONLY valid JSON array, no other text or markdown."""
 
-        response = call_tasks_model_with_retry(model, prompt)
+        response = call_tasks_model_with_retry(client, model_name, prompt)
         text = response.text.strip()
 
         # Clean markdown fences
@@ -111,7 +113,6 @@ Return ONLY valid JSON array, no other text or markdown."""
 
     except Exception as e:
         print(f"[task_generator] Gemini error: {e}")
-        # Fall back to rule-based tasks
         return _generate_fallback_tasks(df, anomalies)
 
 
@@ -121,7 +122,6 @@ def _generate_fallback_tasks(df, anomalies):
     """
     tasks = []
 
-    # Always suggest a review
     if df is not None and not df.empty:
         total = float(df['Amount'].sum()) if 'Amount' in df.columns else 0
         tasks.append({
@@ -132,7 +132,6 @@ def _generate_fallback_tasks(df, anomalies):
             'completed': False,
         })
 
-    # Tasks for anomalies
     for i, anom in enumerate(anomalies[:3]):
         tasks.append({
             'title': f"Investigate: {anom.get('description', 'Unknown')[:40]}",
@@ -142,7 +141,6 @@ def _generate_fallback_tasks(df, anomalies):
             'completed': False,
         })
 
-    # Category budget task
     if df is not None and 'Category' in df.columns:
         top_cat = df.groupby('Category')['Amount'].sum().sort_values(ascending=False)
         if not top_cat.empty:

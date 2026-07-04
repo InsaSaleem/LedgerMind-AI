@@ -1,4 +1,5 @@
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import pandas as pd
 import json
 import re
@@ -57,9 +58,9 @@ def parse_image_with_ocr(filepath):
         text = pytesseract.image_to_string(img)
     except Exception as e:
         if "tesseract is not installed" in str(e).lower() or "not in your path" in str(e).lower():
-            raise Exception("⏳ AI quota reached. (OCR fallback is also unavailable because Tesseract is not installed on Vercel). Please wait 60 seconds and try again.")
+            raise Exception("⏳ AI quota reached. (OCR fallback is also unavailable because Tesseract is not installed). Please wait 60 seconds and try again.")
         raise e
-    
+
     transactions = []
     lines = text.split('\n')
     amount_pat = re.compile(r'\$?([\d,]+\.?\d{0,2})')
@@ -99,63 +100,34 @@ def parse_image_with_ocr(filepath):
         return pd.DataFrame(columns=['Date', 'Description', 'Category', 'Amount'])
 
     df = pd.DataFrame(transactions)
-    # Apply keyword-based auto-categorization so data looks meaningful
     df['Category'] = df['Description'].apply(auto_categorize)
     return df
 
 
-def _create_vision_model(api_key):
-    """
-    Create a dedicated Gemini model instance for vision tasks.
-    Uses a separate configure call scoped to this function to avoid
-    polluting the global genai configuration used by the orchestrator.
-    """
-    # Configure genai with the vision-specific key
-    genai.configure(api_key=api_key)
-
-    # Try model names in priority order (free-tier compatible)
-    _model_names = [
-        'gemini-2.0-flash',
-        'gemini-1.5-flash-latest',
-        'gemini-1.5-flash',
-    ]
-    for _name in _model_names:
-        try:
-            model = genai.GenerativeModel(_name)
-            return model
-        except Exception:
-            continue
-
-    raise RuntimeError("No supported Gemini vision model found.")
-
-
-def parse_image_statement(filepath, api_key=None, restore_key=None):
+def parse_image_statement(filepath, api_key=None):
     """
     Uses Gemini Vision to parse an image of a receipt or bank statement.
     Falls back to pytesseract OCR if quota is exceeded.
 
     Args:
-        filepath:    path to the image file
-        api_key:     the GEMINI_VISION_KEY (dedicated image key, or falls back to main key)
-        restore_key: the main GEMINI_API_KEY to restore after vision call
+        filepath:  path to the image file
+        api_key:   the GEMINI_VISION_KEY
 
     Returns: (pd.DataFrame, parsing_method_str)
     """
     try:
         if not api_key:
-            import os
             api_key = os.environ.get('GEMINI_API_KEY') or \
                       os.environ.get('GEMINI_VISION_KEY')
             if not api_key:
                 raise RuntimeError("No API key provided for image parsing.")
 
-        model = _create_vision_model(api_key)
+        # Create a new genai client with the vision key
+        client = genai.Client(api_key=api_key)
 
         with open(filepath, 'rb') as f:
             image_data = f.read()
 
-        import base64
-        encoded = base64.b64encode(image_data).decode()
         ext = filepath.split('.')[-1].lower()
         mime = 'image/jpeg' if ext in ['jpg', 'jpeg'] else 'image/png'
 
@@ -164,10 +136,13 @@ Return ONLY a JSON array with no markdown:
 [{"Date":"2024-01-15","Description":"Office Rent","Category":"Rent","Amount":1500.00}]
 Return ONLY valid JSON, no other text."""
 
-        response = model.generate_content([
-            {"inline_data": {"mime_type": mime, "data": encoded}},
-            prompt
-        ])
+        response = client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=[
+                types.Part.from_bytes(data=image_data, mime_type=mime),
+                prompt
+            ]
+        )
 
         text = response.text.strip()
         text = re.sub(r'```json|```', '', text).strip()
@@ -204,8 +179,3 @@ Return ONLY valid JSON, no other text."""
             return parse_image_with_ocr(filepath), 'ocr_fallback'
 
         raise RuntimeError(f"Image parsing failed: {err_str}")
-
-    finally:
-        # Restore the main API key so subsequent orchestrator calls work correctly
-        if restore_key:
-            genai.configure(api_key=restore_key)

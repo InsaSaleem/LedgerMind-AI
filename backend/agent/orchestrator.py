@@ -1,4 +1,5 @@
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import json
 import time
 from tools.file_handler import detect_file_type
@@ -10,11 +11,14 @@ from tools.visualizer import generate_chart
 from tools.task_generator import generate_financial_tasks
 
 
-def call_gemini_with_retry(model, prompt, max_retries=3):
+def call_gemini_with_retry(client, model_name, prompt, max_retries=3):
     """Wrap Gemini calls with exponential-backoff retry on 429 quota errors."""
     for attempt in range(max_retries):
         try:
-            response = model.generate_content(prompt)
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt
+            )
             return response
         except Exception as e:
             err_str = str(e)
@@ -66,13 +70,16 @@ class LedgerMindAgent:
         self.api_key = api_key
         self.vision_api_key = vision_api_key or api_key
         self.tasks_api_key = tasks_api_key or api_key
+        self.model_name = 'gemini-2.0-flash'
 
         # Cache: keyed by filepath → (df, anomalies, parsing_method)
         self._file_cache = {}
 
+        # Create the new SDK client
         if api_key:
-            genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-2.0-flash')
+            self.client = genai.Client(api_key=api_key)
+        else:
+            self.client = None
 
     def process_uploaded_file(self, filepath):
         """
@@ -113,7 +120,6 @@ class LedgerMindAgent:
                 result = parse_image_statement(
                     filepath,
                     self.vision_api_key,
-                    restore_key=self.api_key
                 )
                 if isinstance(result, tuple):
                     df, parsing_method = result
@@ -152,8 +158,7 @@ class LedgerMindAgent:
 
         # ── Single combined Gemini call for summary narration ──
         # Only for non-image files (image already used one Gemini call via Vision).
-        # For image files we skip this to stay within rate limits.
-        if file_type != 'image' and self.api_key:
+        if file_type != 'image' and self.client:
             try:
                 narrations.append("> Generating AI summary (1 API call)...")
                 summary = _build_df_summary(df, anomalies)
@@ -165,9 +170,8 @@ In ONE concise response, confirm:
 3. Top spending category
 
 Be concise, 2-3 sentences max."""
-                resp = call_gemini_with_retry(self.model, combined_prompt)
+                resp = call_gemini_with_retry(self.client, self.model_name, combined_prompt)
                 narrations.append(f"> AI: {resp.text.strip()[:200]}")
-                # 2-second cooldown after this call
                 time.sleep(2)
             except Exception as e:
                 print(f"[Orchestrator] Summary Gemini call failed: {e}")
@@ -212,10 +216,10 @@ If the user wants a data answer, answer it directly based on the summary above. 
         try:
             narrations.append("> Querying financial data...")
 
-            if self.api_key:
-                genai.configure(api_key=self.api_key)
+            if not self.client:
+                raise Exception("No API client initialized.")
 
-            response = call_gemini_with_retry(self.model, prompt)
+            response = call_gemini_with_retry(self.client, self.model_name, prompt)
 
             text = response.text.strip()
             if text.startswith("```json"):
@@ -274,18 +278,10 @@ If the user wants a data answer, answer it directly based on the summary above. 
 
         try:
             tasks = generate_financial_tasks(df, anomalies, self.tasks_api_key)
-
-            if self.api_key:
-                genai.configure(api_key=self.api_key)
-
             return {'tasks': tasks, 'error': None}
         except Exception as e:
             err_str = str(e)
             print(f"[Agent.generate_tasks] Exception: {err_str}")
-
-            if self.api_key:
-                genai.configure(api_key=self.api_key)
-
             return {
                 'tasks': generate_financial_tasks(df, anomalies, None),
                 'error': err_str,
