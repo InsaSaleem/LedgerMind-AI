@@ -188,9 +188,21 @@ Return ONLY valid JSON, no other text."""
     except Exception as e:
         err_str = str(e)
         print(f"[image_parser] Gemini error: {err_str}")
+
+        # ── Auth / invalid key errors ──
+        if any(k in err_str for k in ['401', '403', 'API_KEY_INVALID', 'invalid api key',
+                                       'PERMISSION_DENIED', 'API key not valid']):
+            raise RuntimeError(
+                "Invalid or missing Gemini API key. "
+                "Please update GEMINI_VISION_KEY in your .env file with a valid key from "
+                "https://aistudio.google.com/app/apikey and restart the server."
+            )
+
+        # ── Quota / rate-limit errors — try OCR fallback ──
         if '429' in err_str or 'quota' in err_str.lower() or 'rate' in err_str.lower():
             print("[image_parser] Quota exceeded — falling back to OCR...")
             return parse_image_with_ocr(filepath), 'ocr_fallback'
+
         raise RuntimeError(f"Image parsing failed: {err_str}")
 
     finally:

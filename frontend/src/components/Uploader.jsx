@@ -57,9 +57,8 @@ const Uploader = ({ onSuccess }) => {
 
       if (response.ok) {
         onSuccess(data);
-      } else if (response.status === 429 || (data.error && (data.error.includes('429') || data.error.includes('quota')))) {
-        setErrorMsg('⏳ AI quota reached. Please wait 60 seconds and try again, or use a CSV/Excel file instead.');
       } else {
+        // Always show the actual server error message for accurate debugging
         setErrorMsg(data.error || 'Upload failed. Please try again.');
       }
     } catch (error) {
