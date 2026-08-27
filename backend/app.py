@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='../docs', static_url_path='/')
 # Purani line: CORS(app) ko is se replace karein
 CORS(app, resources={r"/*": {"origins": "*"}})
 
@@ -28,15 +28,9 @@ global_app_state = {
 
 from agent.orchestrator import LedgerMindAgent
 
-# Initialize the Gemini Agent with all three keys
-gemini_api_key    = os.environ.get('GEMINI_API_KEY')
-gemini_vision_key = os.environ.get('GEMINI_VISION_KEY', gemini_api_key)
-gemini_tasks_key  = os.environ.get('GEMINI_TASKS_KEY', gemini_api_key)
-agent = LedgerMindAgent(
-    gemini_api_key,
-    vision_api_key=gemini_vision_key,
-    tasks_api_key=gemini_tasks_key,
-)
+# Initialize the Groq Agent
+groq_api_key = os.environ.get('GROQ_API_KEY')
+agent = LedgerMindAgent(api_key=groq_api_key)
 
 
 def _is_rate_limit(err_str):
@@ -55,8 +49,7 @@ def _safe_total_spend(df):
 
 @app.route('/api/upload', methods=['POST'])
 def upload_file():
-    print(f"GEMINI_API_KEY loaded: {'YES' if gemini_api_key else 'NO'}")
-    print(f"GEMINI_VISION_KEY loaded: {'YES' if gemini_vision_key else 'NO'}")
+    print(f"GROQ_API_KEY loaded: {'YES' if groq_api_key else 'NO'}")
     if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
 
@@ -216,6 +209,15 @@ def export_report():
 @app.route('/api/download/<filename>')
 def download_file(filename):
     return send_file(os.path.join(app.config['UPLOAD_FOLDER'], filename), as_attachment=True)
+
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve(path):
+    if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
+        return send_from_directory(app.static_folder, path)
+    else:
+        return send_from_directory(app.static_folder, 'index.html')
 
 
 if __name__ == '__main__':

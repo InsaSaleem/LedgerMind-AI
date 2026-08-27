@@ -17,5 +17,5 @@ export default defineConfig({
     outDir: process.env.VERCEL ? 'dist' : '../docs',
     emptyOutDir: true,
   },
-  base: process.env.VERCEL ? '/' : '/LedgerMind-AI/', // Ensures assets load correctly on GitHub Pages
+  base: '/', // Ensure assets load correctly from root
 })

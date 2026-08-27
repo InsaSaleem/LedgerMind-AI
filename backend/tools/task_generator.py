@@ -1,15 +1,15 @@
-from google import genai
+from groq import Groq
 import json
 import time
 
 
 def call_tasks_model_with_retry(client, model_name, prompt, max_retries=3):
-    """Wrap Gemini calls with exponential-backoff retry on 429 quota errors."""
+    """Wrap Groq calls with exponential-backoff retry on 429 quota errors."""
     for attempt in range(max_retries):
         try:
-            response = client.models.generate_content(
+            response = client.chat.completions.create(
                 model=model_name,
-                contents=prompt
+                messages=[{"role": "user", "content": prompt}]
             )
             return response
         except Exception as e:
@@ -20,7 +20,7 @@ def call_tasks_model_with_retry(client, model_name, prompt, max_retries=3):
                 time.sleep(wait_time)
                 if attempt == max_retries - 1:
                     raise Exception(
-                        "Gemini Tasks API rate limit reached. "
+                        "Groq Tasks API rate limit reached. "
                         "Please wait 30–60 seconds and try again."
                     )
             else:
@@ -29,13 +29,13 @@ def call_tasks_model_with_retry(client, model_name, prompt, max_retries=3):
 
 def generate_financial_tasks(df, anomalies, tasks_api_key):
     """
-    Uses a dedicated Gemini API key to analyze the financial data
+    Uses a dedicated Groq API key to analyze the financial data
     and generate a prioritized list of actionable financial tasks.
 
     Args:
         df: pandas DataFrame with financial transactions
         anomalies: list of detected anomaly dicts
-        tasks_api_key: dedicated GEMINI_TASKS_KEY
+        tasks_api_key: dedicated GROQ_API_KEY
 
     Returns: list of task dicts with keys: title, description, priority, category
     """
@@ -43,8 +43,8 @@ def generate_financial_tasks(df, anomalies, tasks_api_key):
         return _generate_fallback_tasks(df, anomalies)
 
     try:
-        client = genai.Client(api_key=tasks_api_key)
-        model_name = 'gemini-2.0-flash'
+        client = Groq(api_key=tasks_api_key)
+        model_name = 'llama-3.3-70b-versatile'
 
         # Build context
         total_spend = float(df['Amount'].sum()) if 'Amount' in df.columns else 0
@@ -85,7 +85,12 @@ Generate tasks as a JSON array. Each task should have:
 Return ONLY valid JSON array, no other text or markdown."""
 
         response = call_tasks_model_with_retry(client, model_name, prompt)
-        text = response.text.strip()
+        text = response.choices[0].message.content.strip()
+
+        # Strip <think>...</think> or <thought>...</thought> blocks (even if unclosed)
+        import re
+        text = re.sub(r'<(think|thought)>.*?(?:</\1>|$)', '', text, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r'</?(think|thought)>', '', text, flags=re.IGNORECASE).strip()
 
         # Clean markdown fences
         if text.startswith("```json"):
@@ -112,7 +117,7 @@ Return ONLY valid JSON array, no other text or markdown."""
         return validated_tasks
 
     except Exception as e:
-        print(f"[task_generator] Gemini error: {e}")
+        print(f"[task_generator] Groq error: {e}")
         return _generate_fallback_tasks(df, anomalies)
 
 

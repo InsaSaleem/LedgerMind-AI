@@ -1,12 +1,13 @@
-from google import genai
-from google.genai import types
+from groq import Groq
+import base64
 import pandas as pd
 import json
 import re
 import os
 from PIL import Image
 
-# ── OCR availability check (lazy — never fails on import) ──
+from dotenv import load_dotenv
+load_dotenv()  # Load environment variables from .env
 try:
     import pytesseract
     TESSERACT_AVAILABLE = True
@@ -43,14 +44,14 @@ def auto_categorize(description):
 
 def parse_image_with_ocr(filepath):
     """
-    OCR fallback using pytesseract when Gemini quota is exceeded.
+    OCR fallback using pytesseract when Groq quota is exceeded.
     Only called at upload time, never on page load.
     """
     if not TESSERACT_AVAILABLE:
         raise Exception(
             "Image OCR unavailable (Tesseract not installed). "
             "Please use CSV or Excel format instead, or try again "
-            "when Gemini AI quota resets."
+            "when Groq AI quota resets."
         )
 
     img = Image.open(filepath)
@@ -106,47 +107,116 @@ def parse_image_with_ocr(filepath):
 
 def parse_image_statement(filepath, api_key=None):
     """
-    Uses Gemini Vision to parse an image of a receipt or bank statement.
+    Uses Groq Vision to parse an image of a receipt or bank statement.
     Falls back to pytesseract OCR if quota is exceeded.
 
     Args:
         filepath:  path to the image file
-        api_key:   the GEMINI_VISION_KEY
+        api_key:   the GROQ_API_KEY
 
     Returns: (pd.DataFrame, parsing_method_str)
     """
     try:
         if not api_key:
-            api_key = os.environ.get('GEMINI_API_KEY') or \
-                      os.environ.get('GEMINI_VISION_KEY')
+            api_key = os.environ.get('GROQ_API_KEY')
             if not api_key:
                 raise RuntimeError("No API key provided for image parsing.")
 
-        # Create a new genai client with the vision key
-        client = genai.Client(api_key=api_key)
+        # Create a new Groq client
+        client = Groq(api_key=api_key)
 
         with open(filepath, 'rb') as f:
             image_data = f.read()
 
         ext = filepath.split('.')[-1].lower()
         mime = 'image/jpeg' if ext in ['jpg', 'jpeg'] else 'image/png'
+        base64_image = base64.b64encode(image_data).decode('utf-8')
 
         prompt = """Extract ALL financial transactions from this image.
-Return ONLY a JSON array with no markdown:
+Return ONLY a JSON array with no markdown, no explanation, no thinking:
 [{"Date":"2024-01-15","Description":"Office Rent","Category":"Rent","Amount":1500.00}]
+If there are no financial transactions, return: []
 Return ONLY valid JSON, no other text."""
 
-        response = client.models.generate_content(
-            model='gemini-2.0-flash',
-            contents=[
-                types.Part.from_bytes(data=image_data, mime_type=mime),
-                prompt
+        response = client.chat.completions.create(
+            model='qwen/qwen3.6-27b',
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{mime};base64,{base64_image}",
+                            },
+                        },
+                    ],
+                }
             ]
         )
 
-        text = response.text.strip()
+        text = response.choices[0].message.content.strip()
+        print(f"[image_parser] Raw Groq response: {text[:500]}")
+
+        # Strip markdown fences
         text = re.sub(r'```json|```', '', text).strip()
-        transactions = json.loads(text)
+        # Strip <think>...</think> or <thought>...</thought> blocks (even if unclosed)
+        text = re.sub(r'<(think|thought)>.*?(?:</\1>|$)', '', text, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r'</?(think|thought)>', '', text, flags=re.IGNORECASE).strip()
+
+        # Try to extract JSON array from the response
+        json_match = re.search(r'\[.*\]', text, re.DOTALL)
+        if json_match:
+            text = json_match.group(0)
+
+        if not text:
+            print("[image_parser] Model returned empty response, falling back to OCR...")
+            return parse_image_with_ocr(filepath), 'ocr_fallback'
+
+        # ── Robust JSON parsing with multiple fix attempts ──
+        transactions = None
+
+        # Attempt 1: Direct parse
+        try:
+            transactions = json.loads(text)
+        except json.JSONDecodeError:
+            pass
+
+        # Attempt 2: Fix common JSON issues
+        if transactions is None:
+            try:
+                fixed = text
+                # Fix trailing commas before ] or }
+                fixed = re.sub(r',\s*([}\]])', r'\1', fixed)
+                # Fix unescaped double quotes inside strings by replacing with single quotes
+                # Remove any control characters
+                fixed = re.sub(r'[\x00-\x1f\x7f]', ' ', fixed)
+                transactions = json.loads(fixed)
+            except json.JSONDecodeError:
+                pass
+
+        # Attempt 3: Try to extract individual JSON objects
+        if transactions is None:
+            try:
+                objects = re.findall(r'\{[^{}]*\}', text)
+                if objects:
+                    transactions = []
+                    for obj_str in objects:
+                        try:
+                            obj_str = re.sub(r',\s*}', '}', obj_str)
+                            obj = json.loads(obj_str)
+                            transactions.append(obj)
+                        except json.JSONDecodeError:
+                            continue
+            except Exception:
+                pass
+
+        # Attempt 4: If all JSON parsing fails, fall back to OCR
+        if not transactions:
+            print("[image_parser] Could not parse JSON from model response, falling back to OCR...")
+            return parse_image_with_ocr(filepath), 'ocr_fallback'
+
         df = pd.DataFrame(transactions)
 
         # Ensure standard columns exist
@@ -158,19 +228,18 @@ Return ONLY valid JSON, no other text."""
         if 'Category' not in df.columns:
             df['Category'] = 'Uncategorized'
 
-        return df, 'gemini_vision'
+        return df, 'groq_vision'
 
     except Exception as e:
         err_str = str(e)
-        print(f"[image_parser] Gemini error: {err_str}")
+        print(f"[image_parser] Groq error: {err_str}")
 
         # ── Auth / invalid key errors ──
         if any(k in err_str for k in ['401', '403', 'API_KEY_INVALID', 'invalid api key',
                                        'PERMISSION_DENIED', 'API key not valid']):
             raise RuntimeError(
-                "Invalid or missing Gemini API key. "
-                "Please update GEMINI_VISION_KEY in your .env file with a valid key from "
-                "https://aistudio.google.com/app/apikey and restart the server."
+                "Invalid or missing Groq API key. "
+                "Please update GROQ_API_KEY in your .env file with a valid key and restart the server."
             )
 
         # ── Quota / rate-limit errors — try OCR fallback ──

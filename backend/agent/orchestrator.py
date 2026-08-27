@@ -1,7 +1,18 @@
-from google import genai
-from google.genai import types
+from groq import Groq
 import json
 import time
+import re
+
+
+def _strip_think_tags(text):
+    """Remove <think>...</think> or <thought>...</thought> blocks, even if unclosed."""
+    if not text:
+        return ""
+    # Remove closed or unclosed <think> or <thought> blocks
+    text = re.sub(r'<(think|thought)>.*?(?:</\1>|$)', '', text, flags=re.DOTALL | re.IGNORECASE)
+    # Double check for any residual tags
+    text = re.sub(r'</?(think|thought)>', '', text, flags=re.IGNORECASE)
+    return text.strip()
 from tools.file_handler import detect_file_type
 from tools.pdf_parser import parse_pdf_statement
 from tools.data_parser import parse_statement
@@ -10,27 +21,30 @@ from tools.analyzer import detect_anomalies
 from tools.visualizer import generate_chart
 from tools.task_generator import generate_financial_tasks
 
+class GroqResponse:
+    def __init__(self, text):
+        self.text = text
 
-def call_gemini_with_retry(client, model_name, prompt, max_retries=3):
-    """Wrap Gemini calls with exponential-backoff retry on 429 quota errors."""
+def call_groq_with_retry(client, model_name, prompt, max_retries=3):
+    """Wrap Groq calls with exponential-backoff retry on 429 quota errors."""
     for attempt in range(max_retries):
         try:
-            response = client.models.generate_content(
+            response = client.chat.completions.create(
                 model=model_name,
-                contents=prompt
+                messages=[{"role": "user", "content": prompt}]
             )
-            return response
+            raw = response.choices[0].message.content
+            return GroqResponse(_strip_think_tags(raw))
         except Exception as e:
             err_str = str(e)
             if '429' in err_str or 'quota' in err_str.lower() or 'rate' in err_str.lower():
                 wait_time = (2 ** attempt) * 10  # 10s, 20s, 40s
-                print(f"[Gemini] 429 rate-limit hit. Waiting {wait_time}s (attempt {attempt+1}/{max_retries})...")
+                print(f"[Groq] 429 rate-limit hit. Waiting {wait_time}s (attempt {attempt+1}/{max_retries})...")
                 time.sleep(wait_time)
                 if attempt == max_retries - 1:
                     raise Exception(
-                        "Gemini API rate limit reached. "
-                        "Please wait 30–60 seconds and try again. "
-                        "(Free tier: 15 requests/minute)"
+                        "Groq API rate limit reached. "
+                        "Please wait 30–60 seconds and try again."
                     )
             else:
                 raise e
@@ -66,18 +80,16 @@ def _build_df_summary(df, anomalies):
 
 
 class LedgerMindAgent:
-    def __init__(self, api_key, vision_api_key=None, tasks_api_key=None):
+    def __init__(self, api_key):
         self.api_key = api_key
-        self.vision_api_key = vision_api_key or api_key
-        self.tasks_api_key = tasks_api_key or api_key
-        self.model_name = 'gemini-2.0-flash'
+        self.model_name = 'qwen/qwen3.6-27b'
 
         # Cache: keyed by filepath → (df, anomalies, parsing_method)
         self._file_cache = {}
 
         # Create the new SDK client
         if api_key:
-            self.client = genai.Client(api_key=api_key)
+            self.client = Groq(api_key=api_key)
         else:
             self.client = None
 
@@ -116,10 +128,10 @@ class LedgerMindAgent:
                 narrations.append(f"> parse_statement() — normalizing {file_type.upper()} data...")
                 df = parse_statement(filepath)
             elif file_type == 'image':
-                narrations.append("> parse_image_statement() — using Gemini Vision AI...")
+                narrations.append("> parse_image_statement() — using Groq Vision AI...")
                 result = parse_image_statement(
                     filepath,
-                    self.vision_api_key,
+                    self.api_key,
                 )
                 if isinstance(result, tuple):
                     df, parsing_method = result
@@ -156,8 +168,8 @@ class LedgerMindAgent:
         else:
             narrations.append("> No significant anomalies detected.")
 
-        # ── Single combined Gemini call for summary narration ──
-        # Only for non-image files (image already used one Gemini call via Vision).
+        # ── Single combined Groq call for summary narration ──
+        # Only for non-image files (image already used one Groq call via Vision).
         if file_type != 'image' and self.client:
             try:
                 narrations.append("> Generating AI summary (1 API call)...")
@@ -170,11 +182,11 @@ In ONE concise response, confirm:
 3. Top spending category
 
 Be concise, 2-3 sentences max."""
-                resp = call_gemini_with_retry(self.client, self.model_name, combined_prompt)
+                resp = call_groq_with_retry(self.client, self.model_name, combined_prompt)
                 narrations.append(f"> AI: {resp.text.strip()[:200]}")
                 time.sleep(2)
             except Exception as e:
-                print(f"[Orchestrator] Summary Gemini call failed: {e}")
+                print(f"[Orchestrator] Summary Groq call failed: {e}")
                 narrations.append("> AI summary skipped (quota/error).")
 
         result = {
@@ -197,21 +209,26 @@ Be concise, 2-3 sentences max."""
         narrations = []
         df = state.get('dataframe')
 
-        if df is None:
-            return {'text_reply': "Please upload a bank statement first before querying.", 'narrations': narrations}
-
         # Build compact summary instead of full dataframe JSON
         anomalies = state.get('anomalies', [])
-        df_summary = _build_df_summary(df, anomalies)
+        df_summary = _build_df_summary(df, anomalies) if df is not None else None
 
-        prompt = f"""You are LedgerMind AI, a financial intelligence agent.
-The user has uploaded a financial dataset. Here is the data summary:
-{json.dumps(df_summary, indent=2)}
+        if df_summary:
+            data_context = f"Here is the data summary:\n{json.dumps(df_summary, indent=2)}"
+        else:
+            data_context = "No file has been uploaded yet. Please ask the user to upload a bank statement or financial file."
 
-User question: "{user_message}"
+        prompt = f"""You are LedgerMind AI, an intelligent, friendly financial intelligence agent.
+{data_context}
 
-If the user wants a chart or visualization, output JSON: {{"action": "generate_chart", "type": "trend_line" (or "category_pie", "bar")}}.
-If the user wants a data answer, answer it directly based on the summary above. Output JSON: {{"action": "answer", "text": "your answer"}}"""
+User message: "{user_message}"
+
+Guidelines:
+1. You MUST match the user's language. If the user speaks in English, reply in English. If the user speaks in Urdu/Hindi (including Roman Urdu/Hindi, e.g. "hi, kaise ho?"), reply in the same language/script (e.g. Roman Urdu/Hindi or Urdu script as appropriate).
+2. If the user greets you (e.g. "hi", "hello", "salam", "kaise ho"), greet them back warmly and explain what you can do (e.g. analyze bank statements, check anomalies, generate graphs).
+3. If no file is uploaded yet, remind the user politely (in their language) to upload a bank statement/file using the drag-and-drop area so you can analyze it, but still respond to their greeting or general queries.
+4. If the user wants a chart or visualization, output JSON: {{"action": "generate_chart", "type": "trend_line" (or "category_pie", "bar")}}. Note: Charts can only be generated if a file is already uploaded. If no file is uploaded, inform the user they must upload a file first.
+5. If the user wants a text answer, answer it directly in the user's language based on the guidelines. Do NOT include <think> tags. Output JSON: {{"action": "answer", "text": "your response here"}}"""
 
         try:
             narrations.append("> Querying financial data...")
@@ -219,15 +236,24 @@ If the user wants a data answer, answer it directly based on the summary above. 
             if not self.client:
                 raise Exception("No API client initialized.")
 
-            response = call_gemini_with_retry(self.client, self.model_name, prompt)
+            response = call_groq_with_retry(self.client, self.model_name, prompt)
 
-            text = response.text.strip()
-            if text.startswith("```json"):
-                text = text[7:-3].strip()
-            elif text.startswith("```"):
-                text = text[3:-3].strip()
+            text = _strip_think_tags(response.text)
 
-            result = json.loads(text)
+            # Try to extract JSON using regex if standard stripping fails
+            match = re.search(r'\{.*\}', text, re.DOTALL)
+            if match:
+                text = match.group(0)
+
+            try:
+                result = json.loads(text)
+            except json.JSONDecodeError:
+                # Fallback if it's not valid JSON at all
+                narrations.append("> Analyzing data to answer the query...")
+                return {
+                    'text_reply': _strip_think_tags(response.text),
+                    'narrations': narrations
+                }
 
             if result.get('action') == 'generate_chart':
                 chart_type = result.get('type', 'bar')
@@ -241,7 +267,7 @@ If the user wants a data answer, answer it directly based on the summary above. 
             else:
                 narrations.append("> Analyzing data to answer the query...")
                 return {
-                    'text_reply': result.get('text', "I analyzed the data but couldn't form a conclusive answer."),
+                    'text_reply': result.get('text', response.text.strip()),
                     'narrations': narrations
                 }
         except Exception as e:
@@ -259,7 +285,7 @@ If the user wants a data answer, answer it directly based on the summary above. 
 
     def generate_tasks(self, state):
         """
-        Generates AI-powered financial tasks using the dedicated tasks API key.
+        Generates AI-powered financial tasks using the Groq API key.
         """
         df = state.get('dataframe')
         anomalies = state.get('anomalies', [])
@@ -277,7 +303,7 @@ If the user wants a data answer, answer it directly based on the summary above. 
             }
 
         try:
-            tasks = generate_financial_tasks(df, anomalies, self.tasks_api_key)
+            tasks = generate_financial_tasks(df, anomalies, self.api_key)
             return {'tasks': tasks, 'error': None}
         except Exception as e:
             err_str = str(e)
