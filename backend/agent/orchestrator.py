@@ -8,11 +8,11 @@ def _strip_think_tags(text):
     """Remove <think>...</think> or <thought>...</thought> blocks, even if unclosed."""
     if not text:
         return ""
-    # Remove closed or unclosed <think> or <thought> blocks
     text = re.sub(r'<(think|thought)>.*?(?:</\1>|$)', '', text, flags=re.DOTALL | re.IGNORECASE)
-    # Double check for any residual tags
     text = re.sub(r'</?(think|thought)>', '', text, flags=re.IGNORECASE)
     return text.strip()
+
+
 from tools.file_handler import detect_file_type
 from tools.pdf_parser import parse_pdf_statement
 from tools.data_parser import parse_statement
@@ -21,9 +21,11 @@ from tools.analyzer import detect_anomalies
 from tools.visualizer import generate_chart
 from tools.task_generator import generate_financial_tasks
 
+
 class GroqResponse:
     def __init__(self, text):
         self.text = text
+
 
 def call_groq_with_retry(client, model_name, prompt, max_retries=3):
     """Wrap Groq calls with exponential-backoff retry on 429 quota errors."""
@@ -31,20 +33,20 @@ def call_groq_with_retry(client, model_name, prompt, max_retries=3):
         try:
             response = client.chat.completions.create(
                 model=model_name,
-                messages=[{"role": "user", "content": prompt}]
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=600
             )
             raw = response.choices[0].message.content
             return GroqResponse(_strip_think_tags(raw))
         except Exception as e:
             err_str = str(e)
             if '429' in err_str or 'quota' in err_str.lower() or 'rate' in err_str.lower():
-                wait_time = (2 ** attempt) * 10  # 10s, 20s, 40s
+                wait_time = (2 ** attempt) * 3  # 3s, 6s, 12s — shorter waits
                 print(f"[Groq] 429 rate-limit hit. Waiting {wait_time}s (attempt {attempt+1}/{max_retries})...")
                 time.sleep(wait_time)
                 if attempt == max_retries - 1:
                     raise Exception(
-                        "Groq API rate limit reached. "
-                        "Please wait 30–60 seconds and try again."
+                        "AI is busy right now. Please try again in a few seconds."
                     )
             else:
                 raise e
@@ -53,7 +55,7 @@ def call_groq_with_retry(client, model_name, prompt, max_retries=3):
 def _build_df_summary(df, anomalies):
     """
     Build a compact summary dict instead of sending raw DataFrame JSON.
-    This dramatically reduces token count per Gemini request.
+    This dramatically reduces token count per request.
     """
     if df is None or df.empty:
         return {}
@@ -82,12 +84,15 @@ def _build_df_summary(df, anomalies):
 class LedgerMindAgent:
     def __init__(self, api_key):
         self.api_key = api_key
-        self.model_name = 'qwen/qwen3.6-27b'
+        # Groq model — qwen3.8-27b works cleanly on user's account without thinking overhead
+        self.model_name = 'qwen/qwen3.8-27b'
 
         # Cache: keyed by filepath → (df, anomalies, parsing_method)
         self._file_cache = {}
+        # Chat response cache: keyed by (question_hash, data_hash) → response
+        self._chat_cache = {}
 
-        # Create the new SDK client
+        # Create the SDK client
         if api_key:
             self.client = Groq(api_key=api_key)
         else:
@@ -96,11 +101,11 @@ class LedgerMindAgent:
     def process_uploaded_file(self, filepath):
         """
         Autonomous workflow for when a file is uploaded.
-        Uses a single Gemini API call per unique file (cached after first parse).
+        OPTIMIZED: No unnecessary AI calls during upload — saves rate limit quota for chat.
         """
         narrations = []
 
-        # ── Cache hit: skip re-parsing & re-calling Gemini ──
+        # ── Cache hit: skip re-parsing ──
         if filepath in self._file_cache:
             narrations.append("> [Cache] File already processed — skipping re-upload.")
             df, anomalies, parsing_method = self._file_cache[filepath]
@@ -119,7 +124,7 @@ class LedgerMindAgent:
         df = None
         parsing_method = 'standard'
 
-        # ── Parse the file (NO Gemini call yet for structured formats) ──
+        # ── Parse the file ──
         try:
             if file_type == 'pdf':
                 narrations.append("> parse_pdf_statement() — extracting transaction table...")
@@ -137,8 +142,7 @@ class LedgerMindAgent:
                     df, parsing_method = result
                 else:
                     df = result
-                # Add 2s cooldown after vision call to avoid burst limits
-                time.sleep(2)
+                time.sleep(1)
             else:
                 narrations.append("> Error: Unsupported file type.")
                 return {'error': 'Unsupported file type', 'narration': narrations}
@@ -168,26 +172,11 @@ class LedgerMindAgent:
         else:
             narrations.append("> No significant anomalies detected.")
 
-        # ── Single combined Groq call for summary narration ──
-        # Only for non-image files (image already used one Groq call via Vision).
-        if file_type != 'image' and self.client:
-            try:
-                narrations.append("> Generating AI summary (1 API call)...")
-                summary = _build_df_summary(df, anomalies)
-                combined_prompt = f"""You are a financial analyst. Here is the transaction summary: {json.dumps(summary)}
-
-In ONE concise response, confirm:
-1. How many transactions were parsed
-2. Any anomalies detected (unusually large amounts)
-3. Top spending category
-
-Be concise, 2-3 sentences max."""
-                resp = call_groq_with_retry(self.client, self.model_name, combined_prompt)
-                narrations.append(f"> AI: {resp.text.strip()[:200]}")
-                time.sleep(2)
-            except Exception as e:
-                print(f"[Orchestrator] Summary Groq call failed: {e}")
-                narrations.append("> AI summary skipped (quota/error).")
+        # ── OPTIMIZATION: Skip AI summary call on upload ──
+        # This saves 1 API call per upload, preserving quota for actual chat.
+        # The dashboard already shows all the stats visually.
+        total = float(df['Amount'].sum()) if 'Amount' in df.columns else 0
+        narrations.append(f"> Analysis complete: {len(df)} transactions, ${total:,.2f} total spend.")
 
         result = {
             'dataframe': df,
@@ -204,7 +193,7 @@ Be concise, 2-3 sentences max."""
     def chat(self, user_message, state):
         """
         Handles user chat query with retry logic on rate-limit errors.
-        Sends only a compact summary (not full raw DataFrame) to minimize tokens.
+        Uses Groq API with qwen3.6-27b model.
         """
         narrations = []
         df = state.get('dataframe')
@@ -212,6 +201,16 @@ Be concise, 2-3 sentences max."""
         # Build compact summary instead of full dataframe JSON
         anomalies = state.get('anomalies', [])
         df_summary = _build_df_summary(df, anomalies) if df is not None else None
+
+        # ── Simple chat cache to avoid duplicate API calls ──
+        cache_key = user_message.strip().lower()[:100]
+        if cache_key in self._chat_cache:
+            cached = self._chat_cache[cache_key]
+            narrations.append("> [Cache] Returning cached response.")
+            return {
+                'text_reply': cached,
+                'narrations': narrations
+            }
 
         if df_summary:
             data_context = f"Here is the data summary:\n{json.dumps(df_summary, indent=2)}"
@@ -250,8 +249,11 @@ Guidelines:
             except json.JSONDecodeError:
                 # Fallback if it's not valid JSON at all
                 narrations.append("> Analyzing data to answer the query...")
+                reply = _strip_think_tags(response.text)
+                # Cache the response
+                self._chat_cache[cache_key] = reply
                 return {
-                    'text_reply': _strip_think_tags(response.text),
+                    'text_reply': reply,
                     'narrations': narrations
                 }
 
@@ -266,8 +268,11 @@ Guidelines:
                 }
             else:
                 narrations.append("> Analyzing data to answer the query...")
+                reply = result.get('text', response.text.strip())
+                # Cache the response
+                self._chat_cache[cache_key] = reply
                 return {
-                    'text_reply': result.get('text', response.text.strip()),
+                    'text_reply': reply,
                     'narrations': narrations
                 }
         except Exception as e:
@@ -275,8 +280,9 @@ Guidelines:
             print(f"[Agent.chat] Exception: {err_str}")
             if '429' in err_str or 'quota' in err_str.lower() or 'rate limit' in err_str.lower():
                 return {
-                    'text_reply': "⏳ AI rate limit reached. Free tier allows 15 requests/minute. Please wait 30–60 seconds and try again.",
-                    'narrations': ["> Rate limit hit — please retry shortly."]
+                    'text_reply': "⏳ AI is busy right now. Please wait a few seconds and try again.",
+                    'narrations': ["> AI is processing other requests, retrying shortly..."],
+                    'rate_limited': True
                 }
             return {
                 'text_reply': f"Agent error: {err_str}",

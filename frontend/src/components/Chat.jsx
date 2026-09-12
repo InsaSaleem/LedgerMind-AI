@@ -10,26 +10,14 @@ const Chat = () => {
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
   const bottomRef = useRef(null);
-  const cooldownRef = useRef(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
-  // Countdown timer for cooldown
-  useEffect(() => {
-    if (cooldown > 0) {
-      cooldownRef.current = setTimeout(() => setCooldown(c => c - 1), 1000);
-    }
-    return () => clearTimeout(cooldownRef.current);
-  }, [cooldown]);
-
-  const startCooldown = (seconds = 5) => setCooldown(seconds);
-
   const handleSend = async () => {
-    if (!input.trim() || isTyping || cooldown > 0) return;
+    if (!input.trim() || isTyping) return;
 
     const userMsg = input.trim();
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -53,16 +41,13 @@ const Chat = () => {
       }
 
       if (data.reply) {
-        const isRateLimit = data.reply.includes('rate limit') || data.reply.includes('quota');
+        const isRateLimit = data.reply.includes('rate limit') || data.reply.includes('quota') || data.reply.includes('AI is busy');
         setMessages(prev => [...prev, {
           type: 'agent',
           content: data.reply,
           timestamp: agentTimestamp,
           isRateLimit
         }]);
-        // On rate limit, set a longer cooldown to guide the user
-        if (isRateLimit) startCooldown(30);
-        else startCooldown(5);
       }
 
       if (data.chart) {
@@ -82,18 +67,13 @@ const Chat = () => {
     }
   };
 
-  const isSendDisabled = isTyping || cooldown > 0;
-  const sendLabel = cooldown > 0 ? `Wait (${cooldown}s)` : 'Send';
-
   return (
     <div className="chat-panel">
       <div className="chat-header">
         <span className="chat-header-title">💬 AI Chat</span>
-        {cooldown > 0 && (
-          <span style={{ fontSize: '11px', color: '#FFB300', marginLeft: '8px' }}>
-            ⏳ Cooldown: {cooldown}s
-          </span>
-        )}
+        <span style={{ fontSize: '11px', color: '#00E676', marginLeft: '8px' }}>
+          ⚡ Ready
+        </span>
       </div>
 
       <div className="chat-messages">
@@ -135,16 +115,14 @@ const Chat = () => {
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleSend()}
           placeholder="Ask a financial question..."
-          disabled={isSendDisabled}
+          disabled={isTyping}
         />
-        <button className="btn" onClick={handleSend} disabled={isSendDisabled}
-          style={cooldown > 0 ? { background: '#2A2A2A', color: '#888', minWidth: '90px' } : { minWidth: '90px' }}>
-          {sendLabel}
-          {cooldown === 0 && (
-            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-            </svg>
-          )}
+        <button className="btn" onClick={handleSend} disabled={isTyping}
+          style={{ minWidth: '90px' }}>
+          Send
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+          </svg>
         </button>
       </div>
     </div>
@@ -152,5 +130,3 @@ const Chat = () => {
 };
 
 export default Chat;
-
-

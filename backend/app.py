@@ -132,7 +132,7 @@ def chat():
         err_str = str(e)
         if _is_rate_limit(err_str):
             return jsonify({
-                'reply': '⏳ AI rate limit reached. Free tier allows 15 requests/minute. Please wait 30–60 seconds and try again.',
+                'reply': '⏳ AI is busy right now. Please wait a few seconds and try again.',
                 'narrations': [],
                 'chart': None
             }), 200
@@ -209,6 +209,17 @@ def export_report():
 @app.route('/api/download/<filename>')
 def download_file(filename):
     return send_file(os.path.join(app.config['UPLOAD_FOLDER'], filename), as_attachment=True)
+
+
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """Health check endpoint — shows backend status and AI provider info."""
+    return jsonify({
+        'status': 'ok',
+        'provider': 'groq',
+        'model': 'qwen/qwen3.8-27b',
+        'has_api_key': bool(groq_api_key),
+    }), 200
 
 
 @app.route('/', defaults={'path': ''})

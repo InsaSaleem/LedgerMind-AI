@@ -9,7 +9,8 @@ def call_tasks_model_with_retry(client, model_name, prompt, max_retries=3):
         try:
             response = client.chat.completions.create(
                 model=model_name,
-                messages=[{"role": "user", "content": prompt}]
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=600
             )
             return response
         except Exception as e:
@@ -44,7 +45,7 @@ def generate_financial_tasks(df, anomalies, tasks_api_key):
 
     try:
         client = Groq(api_key=tasks_api_key)
-        model_name = 'llama-3.3-70b-versatile'
+        model_name = 'qwen/qwen3.8-27b'
 
         # Build context
         total_spend = float(df['Amount'].sum()) if 'Amount' in df.columns else 0
