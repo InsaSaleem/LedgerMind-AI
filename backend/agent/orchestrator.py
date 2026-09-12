@@ -93,8 +93,10 @@ class LedgerMindAgent:
         self._chat_cache = {}
 
         # Create the SDK client
-        if api_key:
-            self.client = Groq(api_key=api_key)
+        key = api_key or os.environ.get('GROQ_API_KEY')
+        if key:
+            self.client = Groq(api_key=key)
+            self.api_key = key
         else:
             self.client = None
 
@@ -233,7 +235,12 @@ Guidelines:
             narrations.append("> Querying financial data...")
 
             if not self.client:
-                raise Exception("No API client initialized.")
+                key = os.environ.get('GROQ_API_KEY')
+                if key:
+                    self.client = Groq(api_key=key)
+                    self.api_key = key
+                else:
+                    raise Exception("GROQ_API_KEY is missing in Vercel Environment Variables. Please add GROQ_API_KEY in Vercel Project Settings.")
 
             response = call_groq_with_retry(self.client, self.model_name, prompt)
 
