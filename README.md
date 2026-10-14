@@ -26,6 +26,7 @@ Powered by **Groq LPU Acceleration** (`qwen/qwen3.8-27b`) for sub-second financi
 - [Key Features](#-key-features)
 - [System Architecture](#-system-architecture)
 - [Project Structure](#-project-structure)
+- [Sample Statements & Reference Files (Ready to Try!)](#-sample-statements--reference-files-ready-to-try)
 - [Step-by-Step Local Setup Guide](#-step-by-step-local-setup-guide)
   - [Prerequisites](#prerequisites)
   - [1. Clone the Repository](#1-clone-the-repository)
@@ -37,6 +38,7 @@ Powered by **Groq LPU Acceleration** (`qwen/qwen3.8-27b`) for sub-second financi
 - [API Reference](#-api-reference)
 - [Access URLs Summary (Local & Live)](#-access-urls-summary)
 - [License & Author](#-license--author)
+
 
 ---
 
@@ -95,6 +97,12 @@ graph TD;
 
 ```text
 LedgerMind-AI/
+├── samples/                       # Ready-to-use sample bank statements & receipts
+│   ├── test_april_statement.pdf   # Swift Bank April PDF (with $14.5k anomaly)
+│   ├── test_june_receipt.png      # Metro Cash & Carry wholesale receipt image
+│   ├── test_may_statement.jpg     # Crescent Bank May statement image
+│   ├── ledgermind_test_statement.csv  # 51-transaction corporate operational ledger
+│   └── ledgermind_test_statement.xlsx # Multi-sheet accounting spreadsheet
 ├── backend/
 │   ├── agent/
 │   │   ├── __init__.py
@@ -110,7 +118,7 @@ LedgerMind-AI/
 │   │   ├── report_generator.py    # Executive PDF generator (ReportLab)
 │   │   ├── task_generator.py      # AI task recommendation engine
 │   │   └── visualizer.py          # Matplotlib chart generator
-│   ├── uploads/                   # Stored statements & sample files
+│   ├── uploads/                   # Temporary upload directory
 │   ├── .env.example               # Template for environment variables
 │   ├── app.py                     # Flask application & API routes
 │   ├── requirements.txt           # Python backend dependencies
@@ -130,11 +138,36 @@ LedgerMind-AI/
 │   ├── vercel.json                # Frontend Vercel rewrite configuration
 │   └── vite.config.js             # Vite build & reverse-proxy config
 ├── docs/                          # Built production distribution
+├── LICENSE                        # MIT License
 ├── README.md                      # Comprehensive project documentation
 └── .gitignore                     # Git ignore rules
 ```
 
 ---
+
+## 🧪 Sample Statements & Reference Files (Ready to Try!)
+
+To help recruiters, developers, and testers try out **LedgerMind AI** immediately without needing personal bank documents, we have provided **ready-to-use sample files** directly in the [`samples/`](samples/) directory.
+
+You can drag and drop any of these files into the [Live Demo](https://ledger-mind-ai.vercel.app/) or your local instance at `http://localhost:5000`:
+
+| Sample File | Format | Scenario / Description | Key Features Tested | Expected Anomaly / Result |
+| :--- | :---: | :--- | :--- | :--- |
+| **[`test_april_statement.pdf`](samples/test_april_statement.pdf)** | **PDF** | **Swift Bank** April 2024 statement (20 transactions, $27,107.50 spend) | Native digital PDF extraction via `pdfplumber`, table parsing | 🚨 **Flags $14,500.00** `CRITICAL EQUIPMENT FAILURE` as high Z-score outlier |
+| **[`test_june_receipt.png`](samples/test_june_receipt.png)** | **PNG Image** | **Metro Cash & Carry** Wholesale receipt (Rs. 233,005 bulk supplies) | Groq Vision AI multimodal ingestion, itemized OCR & categorization | 📦 Extracts line items (Rice, Oil, Boxes, Sanitizer) and auto-categorizes |
+| **[`test_may_statement.jpg`](samples/test_may_statement.jpg)** | **JPG Image** | **Crescent Bank** May 2024 statement (18 transactions) | Vision AI / OCR full-page statement parsing | 🚨 **Flags Rs. 950,000** `URGENT EQUIPMENT REPAIR` anomaly |
+| **[`ledgermind_test_statement.csv`](samples/ledgermind_test_statement.csv)** | **CSV** | Complete 51-transaction corporate operational ledger | High-volume column mapping, instant statistics & category sums | 🚨 **Flags $9,500.00** `Emergency Equipment Repair` (Z-Score: 5.10) |
+| **[`ledgermind_test_statement.xlsx`](samples/ledgermind_test_statement.xlsx)** | **Excel** | Multi-column spreadsheet accounting format | Openpyxl spreadsheet parsing & normalization | 📊 Generates spending breakdown across Salaries, Suppliers, Rent, Marketing |
+
+### 💡 Example Prompts to Try With These Samples:
+- *"What is my biggest expense, and why was it flagged as an anomaly?"*
+- *"Show me a pie chart of my spending breakdown by category."*
+- *"Plot a trend line showing how my expenses evolved over time."*
+- *"What actionable recommendations do you suggest to reduce my supplier overhead?"*
+- *"Generate and export an executive PDF audit report."*
+
+---
+
 
 ## ⚡ Step-by-Step Local Setup Guide
 
