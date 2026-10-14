@@ -1,4 +1,6 @@
 import os
+os.environ.setdefault('MPLCONFIGDIR', '/tmp/matplotlib')
+
 from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
@@ -7,17 +9,38 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-app = Flask(__name__, static_folder='../docs', static_url_path='/')
-# Purani line: CORS(app) ko is se replace karein
+# Determine static folder (only exists locally / monorepo, not in standalone backend deployment)
+docs_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'docs'))
+if os.path.isdir(docs_path):
+    app = Flask(__name__, static_folder=docs_path, static_url_path='/')
+else:
+    app = Flask(__name__, static_folder=None)
+
+# Configure CORS to allow all origins and methods
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-# Use /tmp for serverless environments like Vercel
-if os.environ.get('VERCEL') or os.environ.get('VERCEL_ENV'):
+@app.after_request
+def add_cors_headers(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
+    response.headers['Access-Control-Allow-Methods'] = 'GET,PUT,POST,DELETE,OPTIONS'
+    return response
+
+# Use /tmp for serverless environments (Vercel, AWS Lambda)
+is_serverless = bool(os.environ.get('VERCEL') or os.environ.get('VERCEL_ENV') or os.environ.get('AWS_LAMBDA_FUNCTION_NAME'))
+if is_serverless:
     UPLOAD_FOLDER = os.path.join('/tmp', 'uploads')
 else:
     UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+try:
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+except Exception:
+    UPLOAD_FOLDER = os.path.join('/tmp', 'uploads')
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
 
 # Global state (MVP — use sessions/DB in production)
 global_app_state = {
@@ -225,10 +248,17 @@ def health_check():
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve(path):
-    if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
-        return send_from_directory(app.static_folder, path)
-    else:
-        return send_from_directory(app.static_folder, 'index.html')
+    if app.static_folder and os.path.isdir(app.static_folder):
+        if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
+            return send_from_directory(app.static_folder, path)
+        elif os.path.exists(os.path.join(app.static_folder, 'index.html')):
+            return send_from_directory(app.static_folder, 'index.html')
+    return jsonify({
+        'status': 'ok',
+        'message': 'LedgerMind AI Backend API is active',
+        'health_check': '/api/health'
+    }), 200
+
 
 
 if __name__ == '__main__':
